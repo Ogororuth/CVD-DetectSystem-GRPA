@@ -17,4 +17,10 @@ urlpatterns = [
     path('auth/me/', views.get_current_user, name='current_user'),
     path('auth/profile/', views.update_profile, name='update_profile'),
     path('auth/change-password/', views.change_password, name='change_password'),
+    
+    # 2FA endpoints
+    path('auth/2fa/enable/', views.enable_2fa, name='enable_2fa'),
+    path('auth/2fa/verify/', views.verify_2fa, name='verify_2fa'),
+    path('auth/2fa/disable/', views.disable_2fa, name='disable_2fa'),
+    path('auth/2fa/login-verify/', views.verify_2fa_login, name='verify_2fa_login'),
 ]

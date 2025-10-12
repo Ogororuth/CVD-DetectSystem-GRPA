@@ -96,13 +96,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.full_name} ({self.email})"
+        return f"{self.first_name} {self.last_name} ({self.email})"
     
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}"
     
     def get_short_name(self):
-        return self.full_name.split()[0] if self.full_name else self.email
+        return self.first_name.split()[0] if self.first_name else self.email
 
 
 class Scan(models.Model):
@@ -156,7 +156,7 @@ class Scan(models.Model):
         ]
     
     def __str__(self):
-        return f"Scan #{self.id} - {self.user.full_name} ({self.risk_level})"
+        return f"Scan #{self.id} - {self.user.first_name} {self.user.last_name} ({self.risk_level})"
     
     def soft_delete(self):
         """Soft delete - hide from user view"""
