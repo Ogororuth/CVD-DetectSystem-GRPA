@@ -13,6 +13,7 @@ from django.core.files.storage import default_storage
 from core.models import Scan
 import uuid
 from datetime import date, timedelta
+from core.report_generator import ScanReportGenerator
 
 from .serializers import (
     UserRegistrationSerializer,
@@ -543,3 +544,94 @@ def get_scan_statistics(request):
         'recent_scans_7days': recent_scans,
         'reports_generated': user_scans.filter(report_generated=True).count()
     }, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_report(request, scan_id):
+    """
+    Generate PDF report for a scan
+    POST /api/scans/<id>/generate-report/
+    """
+    try:
+        scan = Scan.objects.get(
+            id=scan_id,
+            user=request.user,
+            deleted_by_user=False
+        )
+    except Scan.DoesNotExist:
+        return Response({
+            'error': 'Scan not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Check if report already exists
+    if scan.report_generated and scan.report_path:
+        return Response({
+            'message': 'Report already exists',
+            'report_path': scan.report_path,
+            'scan': ScanSerializer(scan).data
+        }, status=status.HTTP_200_OK)
+    
+    # Generate report
+    try:
+        generator = ScanReportGenerator(scan)
+        report_path = generator.generate_report()
+        
+        # Update scan record
+        scan.report_path = report_path
+        scan.report_generated = True
+        scan.save(update_fields=['report_path', 'report_generated'])
+        
+        return Response({
+            'message': 'Report generated successfully',
+            'report_path': report_path,
+            'scan': ScanSerializer(scan).data
+        }, status=status.HTTP_201_CREATED)
+    
+    except Exception as e:
+        return Response({
+            'error': f'Failed to generate report: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_report(request, scan_id):
+    """
+    Download PDF report for a scan
+    GET /api/scans/<id>/download-report/
+    """
+    try:
+        scan = Scan.objects.get(
+            id=scan_id,
+            user=request.user,
+            deleted_by_user=False
+        )
+    except Scan.DoesNotExist:
+        return Response({
+            'error': 'Scan not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    if not scan.report_generated or not scan.report_path:
+        return Response({
+            'error': 'Report not generated yet. Generate it first.'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Build full file path
+    from django.http import FileResponse
+    import os
+    
+    report_full_path = os.path.join(settings.MEDIA_ROOT, scan.report_path)
+    
+    if not os.path.exists(report_full_path):
+        return Response({
+            'error': 'Report file not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Return file for download
+    response = FileResponse(
+        open(report_full_path, 'rb'),
+        content_type='application/pdf'
+    )
+    response['Content-Disposition'] = f'attachment; filename="CVD_Report_{scan_id}.pdf"'
+    
+    return response
