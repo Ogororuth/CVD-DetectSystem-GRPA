@@ -74,10 +74,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     two_fa_enabled = models.BooleanField(default=False)
     two_fa_secret = models.CharField(max_length=32, blank=True, null=True)
     
+    # Email verification fields
+    email_verified = models.BooleanField(default=False)
+    verification_token = models.CharField(max_length=100, blank=True, null=True)
+    verification_token_expires = models.DateTimeField(blank=True, null=True)
+    
     # Status fields
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    email_verified = models.BooleanField(default=False)
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
