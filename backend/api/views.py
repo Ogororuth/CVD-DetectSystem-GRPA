@@ -52,25 +52,100 @@ def register_user(request):
     if serializer.is_valid():
         user = serializer.save()
         
-        # Generate tokens
-        access_token = generate_access_token(user)
-        refresh_token = generate_refresh_token(user)
-        
-        # Update last login
-        user.last_login = timezone.now()
-        user.save(update_fields=['last_login'])
-        
+        user.is_active = False
+        user.email_verified = False
+        user.save(update_fields=['is_active', 'email_verified'])
+
+        # Create verification code record
+        from utils.email_utils import generate_6_digit_code, send_verification_code_email
+        from core.models import EmailVerificationCode
+
+        code = generate_6_digit_code()
+        ev = EmailVerificationCode.objects.create(user=user, code=code)
+        # Send email (this uses your SMTP credentials from env)
+        send_verification_code_email(user.email, code)
+
         return Response({
-            'message': 'User registered successfully',
-            'user': UserSerializer(user).data,
-            'tokens': {
-                'access': access_token,
-                'refresh': refresh_token
-            }
+            'message': 'User registered successfully. A verification code has been sent to your email.',
+            'user': UserSerializer(user).data
         }, status=status.HTTP_201_CREATED)
     
+    # If validation fails, return errors
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_email(request):
+    print("🔍 VERIFY EMAIL VIEW CALLED")
+    print(f"Method: {request.method}")
+    print(f"Path: {request.path}")
+    print(f"Headers: {dict(request.headers)}")
+    print(f"Data: {request.data}")
+    """
+    Verify 6-digit email code
+    POST /api/auth/verify-email/
+    body: { "email": "...", "code": "123456" }
+    """
+    email = request.data.get('email')
+    code = request.data.get('code')
+
+    if not email or not code:
+        return Response({'error': 'Email and code are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(email=email.lower())
+    except User.DoesNotExist:
+        return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # find the latest matching code for this user
+    from core.models import EmailVerificationCode
+    ev = EmailVerificationCode.objects.filter(user=user, code=code, used=False).order_by('-created_at').first()
+
+    if not ev:
+        return Response({'error': 'Invalid code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not ev.is_valid():
+        return Response({'error': 'Code expired.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # mark as used and verify user
+    ev.used = True
+    ev.save(update_fields=['used'])
+
+    user.email_verified = True
+    user.is_active = True
+    user.save(update_fields=['email_verified', 'is_active'])
+
+    return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def resend_verification(request):
+    """
+    Resend verification code to user's email
+    POST /api/auth/resend-verification/
+    body: { "email": "..." }
+    """
+    email = request.data.get('email')
+    if not email:
+        return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(email=email.lower())
+    except User.DoesNotExist:
+        return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if user.email_verified:
+        return Response({'message': 'Email already verified.'}, status=status.HTTP_200_OK)
+
+    from utils.email_utils import generate_6_digit_code, send_verification_code_email
+    from core.models import EmailVerificationCode
+
+    code = generate_6_digit_code()
+    EmailVerificationCode.objects.create(user=user, code=code)
+    send_verification_code_email(user.email, code)
+
+    return Response({'message': 'Verification code resent.'}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -95,10 +170,11 @@ def login_user(request):
             'error': 'Invalid email or password'
         }, status=status.HTTP_401_UNAUTHORIZED)
     
+    # COMMENTED OUT - Temporarily disable email verification check
     if not user.is_active:
-        return Response({
-            'error': 'Account is inactive'
-        }, status=status.HTTP_403_FORBIDDEN)
+         return Response({
+             'error': 'Account is inactive'
+         }, status=status.HTTP_403_FORBIDDEN)
     
     # Check if 2FA is enabled
     if user.two_fa_enabled:
@@ -124,7 +200,6 @@ def login_user(request):
             'refresh': refresh_token
         }
     }, status=status.HTTP_200_OK)
-
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -267,6 +342,64 @@ def enable_2fa(request):
         'backup_codes': backup_codes
     }, status=status.HTTP_200_OK)
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_auth(request):
+    """
+    Authenticate user with Google OAuth token
+    POST /api/auth/google/
+    body: { "token": "google_id_token" }
+    """
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as google_requests
+    
+    token = request.data.get('token')
+    
+    if not token:
+        return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Verify Google token
+        idinfo = id_token.verify_oauth2_token(
+            token, 
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID
+        )
+        
+        email = idinfo['email']
+        first_name = idinfo.get('given_name', '')
+        last_name = idinfo.get('family_name', '')
+        
+        # Get or create user
+        user, created = User.objects.get_or_create(
+            email=email.lower(),
+            defaults={
+                'first_name': first_name,
+                'last_name': last_name,
+                'email_verified': True,  # Google emails are already verified
+                'is_active': True
+            }
+        )
+        
+        # Generate tokens
+        access_token = generate_access_token(user)
+        refresh_token_str = generate_refresh_token(user)
+        
+        # Update last login
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+        
+        return Response({
+            'message': 'Google authentication successful',
+            'user': UserSerializer(user).data,
+            'tokens': {
+                'access': access_token,
+                'refresh': refresh_token_str
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except ValueError as e:
+        return Response({'error': 'Invalid Google token'}, status=status.HTTP_401_UNAUTHORIZED)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

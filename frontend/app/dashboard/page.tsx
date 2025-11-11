@@ -23,31 +23,47 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      router.push('/auth/login');
-      return;
-    }
+    const fetchData = async () => {
+      // Check for token
+      const token = localStorage.getItem('accessToken');
+      console.log('Dashboard: Checking token...', token ? 'Found' : 'Not found');
+      
+      if (!token) {
+        console.log('Dashboard: No token, redirecting to login');
+        router.push('/auth/login');
+        return;
+      }
 
-    Promise.all([
-      authAPI.getCurrentUser(),
-      scansAPI.getStatistics()
-    ])
-      .then(([userRes, statsRes]) => {
+      try {
+        console.log('Dashboard: Fetching user and stats...');
+        const [userRes, statsRes] = await Promise.all([
+          authAPI.getCurrentUser(),
+          scansAPI.getStatistics()
+        ]);
+        
+        console.log('Dashboard: Data fetched successfully');
         setUser(userRes.data);
         setStats(statsRes.data);
         setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Failed to fetch data:', error);
+      } catch (error: any) {
+        console.error('Dashboard: Failed to fetch data:', error);
+        
         if (error.response?.status === 401) {
+          console.log('Dashboard: 401 error, clearing tokens and redirecting');
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           router.push('/auth/login');
+        } else {
+          setError('Failed to load dashboard data');
+          setLoading(false);
         }
-      });
+      }
+    };
+
+    fetchData();
   }, [router]);
 
   const handleLogout = () => {
@@ -62,6 +78,26 @@ export default function DashboardPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Error Loading Dashboard</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

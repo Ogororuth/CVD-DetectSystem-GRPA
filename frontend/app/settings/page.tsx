@@ -91,7 +91,7 @@ export default function SettingsPage() {
               <div>
                 <p className="font-medium text-gray-900">Email Verification</p>
                 <p className="text-sm text-gray-600">
-                  {user.email_verified ? 'Verified ✅' : 'Not verified'}
+                  {user.email_verified ? 'Verified ' : 'Not verified'}
                 </p>
               </div>
               {!user.email_verified && (
@@ -235,8 +235,6 @@ export default function SettingsPage() {
 
         {/* Danger Zone */}
         <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-          <h2 className="text-xl font-bold text-red-900 mb-4">Danger Zone</h2>
-          
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>

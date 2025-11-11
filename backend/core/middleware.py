@@ -14,6 +14,21 @@ class JWTAuthenticationMiddleware(MiddlewareMixin):
         """
         Extract JWT token from Authorization header and authenticate user
         """
+        # Public endpoints that don't need JWT authentication
+        public_paths = [
+            '/api/auth/register/',
+            '/api/auth/login/',
+            '/api/auth/verify-email/',
+            '/api/auth/resend-verification/',
+            '/api/auth/2fa/login-verify/',
+            '/api/auth/refresh/',
+            '/admin/',
+        ]
+        
+        # Skip JWT check for public paths
+        if any(request.path.startswith(path) for path in public_paths):
+            return None
+        
         # Get authorization header
         auth_header = request.META.get('HTTP_AUTHORIZATION', '')
         

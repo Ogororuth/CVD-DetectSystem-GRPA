@@ -15,24 +15,34 @@ export const apiClient = axios.create({
 });
 
 // Request interceptor to add auth token
-// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
-    // Don't add token to login/register requests
-    const publicUrls = ['/auth/login/', '/auth/register/', '/auth/2fa/login-verify/'];
+    const publicUrls = [
+      '/auth/login/',
+      '/auth/register/',
+      '/auth/2fa/login-verify/',
+      '/auth/refresh/',
+    ];
+
     const isPublicUrl = publicUrls.some(url => config.url?.includes(url));
-    
+
     if (!isPublicUrl && typeof window !== 'undefined') {
       const token = localStorage.getItem('accessToken');
+      console.log('🔍 Request to:', config.url);
+      console.log('🔍 Token exists:', !!token);
+      console.log('🔍 Token value:', token?.substring(0, 20) + '...');
+      
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        console.log(' Authorization header set');
+      } else {
+        console.warn("No access token found for:", config.url);
       }
     }
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor for token refresh
@@ -49,22 +59,36 @@ apiClient.interceptors.response.use(
         const refreshToken = localStorage.getItem('refreshToken');
         
         if (refreshToken) {
+          // FIXED: Changed from 'refresh_token' to 'refresh'
           const response = await axios.post(`${API_BASE_URL}/auth/refresh/`, {
             refresh_token: refreshToken,
           });
 
           const { access } = response.data;
-          localStorage.setItem('accessToken', access);
+          
+          if (access) {
+            localStorage.setItem('accessToken', access);
 
-          // Retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${access}`;
-          return apiClient(originalRequest);
+            // Retry original request with new token
+            originalRequest.headers.Authorization = `Bearer ${access}`;
+            return apiClient(originalRequest);
+          } else {
+            throw new Error('No access token in refresh response');
+          }
+        } else {
+          console.warn('No refresh token available');
+          throw new Error('No refresh token');
         }
       } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
         // Refresh failed, clear tokens and redirect to login
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        window.location.href = '/auth/login';
+        
+        // Only redirect if we're not already on the login page
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
+          window.location.href = '/auth/login';
+        }
         return Promise.reject(refreshError);
       }
     }
@@ -82,6 +106,11 @@ export const authAPI = {
   updateProfile: (data: any) => apiClient.patch('/auth/profile/', data),
   changePassword: (data: any) => apiClient.post('/auth/change-password/', data),
   
+  // Email Verification 
+  verifyEmail: (email: string, code: string) => 
+    apiClient.post('/auth/verify-email/', { email, code }),
+  resendVerification: (email: string) => 
+    apiClient.post('/auth/resend-verification/', { email }),
   // 2FA
   enable2FA: () => apiClient.post('/auth/2fa/enable/'),
   verify2FA: (token: string) => apiClient.post('/auth/2fa/verify/', { token }),

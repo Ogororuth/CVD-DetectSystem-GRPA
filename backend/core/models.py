@@ -1,9 +1,12 @@
 """
 Core models for CVD Detection System
 """
+import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.conf import settings
 from django.utils import timezone
+from datetime import timedelta
 
 
 class UserManager(BaseUserManager):
@@ -103,10 +106,41 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.first_name} {self.last_name} ({self.email})"
     
     def get_full_name(self):
-        return f"{self.first_name} {self.last_name}"
+        """Returns the user's full name"""
+        full_name = f"{self.first_name} {self.last_name}".strip()
+        return full_name if full_name else self.email
     
     def get_short_name(self):
+        """Returns the user's first name"""
         return self.first_name.split()[0] if self.first_name else self.email
+
+
+class EmailVerificationCode(models.Model):
+    """Email verification code model"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='email_verifications')
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(minutes=15)  # 15-minute expiry
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        """Check if the verification code is still valid"""
+        return (not self.used) and (timezone.now() <= self.expires_at)
+    
+    class Meta:
+        db_table = 'email_verification_codes'
+        verbose_name = 'Email Verification Code'
+        verbose_name_plural = 'Email Verification Codes'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Code for {self.user.email}"
 
 
 class Scan(models.Model):
