@@ -5,6 +5,33 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
+// Helper function to get token from either storage
+const getToken = (key: string): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(key) || sessionStorage.getItem(key);
+};
+
+// Helper function to set token in appropriate storage
+const setToken = (key: string, value: string): void => {
+  if (typeof window === 'undefined') return;
+  
+  // Check if user had "Remember Me" enabled by checking if localStorage has tokens
+  const hasLocalStorage = localStorage.getItem('accessToken') || localStorage.getItem('refreshToken');
+  
+  if (hasLocalStorage) {
+    localStorage.setItem(key, value);
+  } else {
+    sessionStorage.setItem(key, value);
+  }
+};
+
+// Helper function to remove token from both storages
+const removeToken = (key: string): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(key);
+  sessionStorage.removeItem(key);
+};
+
 // Create axios instance
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -20,6 +47,9 @@ apiClient.interceptors.request.use(
     const publicUrls = [
       '/auth/login/',
       '/auth/register/',
+      '/auth/verify-email/',
+      '/auth/resend-verification/',
+      '/auth/google/',
       '/auth/2fa/login-verify/',
       '/auth/refresh/',
     ];
@@ -27,16 +57,16 @@ apiClient.interceptors.request.use(
     const isPublicUrl = publicUrls.some(url => config.url?.includes(url));
 
     if (!isPublicUrl && typeof window !== 'undefined') {
-      const token = localStorage.getItem('accessToken');
+      const token = getToken('accessToken'); // ✅ NOW CHECKS BOTH STORAGES
       console.log('🔍 Request to:', config.url);
       console.log('🔍 Token exists:', !!token);
       console.log('🔍 Token value:', token?.substring(0, 20) + '...');
       
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log(' Authorization header set');
+        console.log('✅ Authorization header set');
       } else {
-        console.warn("No access token found for:", config.url);
+        console.warn("⚠️ No access token found for:", config.url);
       }
     }
 
@@ -56,10 +86,9 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = getToken('refreshToken'); // ✅ NOW CHECKS BOTH STORAGES
         
         if (refreshToken) {
-          // FIXED: Changed from 'refresh_token' to 'refresh'
           const response = await axios.post(`${API_BASE_URL}/auth/refresh/`, {
             refresh_token: refreshToken,
           });
@@ -67,7 +96,7 @@ apiClient.interceptors.response.use(
           const { access } = response.data;
           
           if (access) {
-            localStorage.setItem('accessToken', access);
+            setToken('accessToken', access); // ✅ STORES IN CORRECT LOCATION
 
             // Retry original request with new token
             originalRequest.headers.Authorization = `Bearer ${access}`;
@@ -82,8 +111,8 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);
         // Refresh failed, clear tokens and redirect to login
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        removeToken('accessToken'); // ✅ REMOVES FROM BOTH STORAGES
+        removeToken('refreshToken'); // ✅ REMOVES FROM BOTH STORAGES
         
         // Only redirect if we're not already on the login page
         if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
@@ -111,6 +140,10 @@ export const authAPI = {
     apiClient.post('/auth/verify-email/', { email, code }),
   resendVerification: (email: string) => 
     apiClient.post('/auth/resend-verification/', { email }),
+  
+  // Google OAuth
+  googleAuth: (token: string) => apiClient.post('/auth/google/', { token }),
+  
   // 2FA
   enable2FA: () => apiClient.post('/auth/2fa/enable/'),
   verify2FA: (token: string) => apiClient.post('/auth/2fa/verify/', { token }),

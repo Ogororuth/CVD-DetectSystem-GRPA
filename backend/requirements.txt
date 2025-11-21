@@ -6,6 +6,11 @@ django-cors-headers==4.3.1
 # Authentication
 PyJWT==2.8.0
 
+# Authentication
+PyJWT==2.8.0
+pyotp==2.9.0
+qrcode==7.4.2
+
 # Image Processing
 Pillow==10.2.0
 
@@ -19,3 +24,9 @@ python-dotenv==1.0.1
 black==24.1.1
 pytest==8.0.0
 pytest-django==4.7.0
+
+torch>=2.0.0
+transformers>=4.30.0
+opencv-python>=4.7.0
+numpy>=1.24.0
+gdown>=4.7.0

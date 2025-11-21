@@ -142,6 +142,32 @@ class EmailVerificationCode(models.Model):
     def __str__(self):
         return f"Code for {self.user.email}"
 
+class PasswordResetCode(models.Model):
+    """Password reset code model"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_resets')
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(minutes=15)  # 15-minute expiry
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        """Check if the reset code is still valid"""
+        return (not self.used) and (timezone.now() <= self.expires_at)
+    
+    class Meta:
+        db_table = 'password_reset_codes'
+        verbose_name = 'Password Reset Code'
+        verbose_name_plural = 'Password Reset Codes'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Reset code for {self.user.email}"
 
 class Scan(models.Model):
     """Medical scan model"""
@@ -163,7 +189,7 @@ class Scan(models.Model):
     # Prediction results
     risk_level = models.CharField(max_length=20, choices=RISK_LEVELS)
     confidence_score = models.FloatField()
-    prediction_result = models.JSONField()  # Stores detailed results
+    prediction_result = models.JSONField(default=dict)  # Stores detailed results including lead_analysis
     
     # Metadata
     notes = models.TextField(blank=True, null=True)
@@ -207,6 +233,20 @@ class Scan(models.Model):
         self.deleted_by_user = False
         self.deleted_at = None
         self.save()
+    
+    def get_lead_analysis(self):
+        """Get lead analysis data from prediction_result"""
+        return self.prediction_result.get('lead_analysis', {})
+    
+    def get_enhanced_interpretation(self):
+        """Get enhanced interpretation with lead insights"""
+        interpretation = self.prediction_result.get('interpretation', {})
+        lead_analysis = self.get_lead_analysis()
+        
+        # Add lead insights if available
+        if lead_analysis and 'lead_insights' in interpretation:
+            return interpretation
+        return interpretation
 
 
 class UserPreference(models.Model):

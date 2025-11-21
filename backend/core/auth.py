@@ -46,7 +46,7 @@ class JWTAuthentication(BaseAuthentication):
 def generate_access_token(user):
     """Generate JWT access token"""
     payload = {
-        'user_id': user.id,
+        'user_id': str(user.id),
         'email': user.email,
         'exp': datetime.utcnow() + timedelta(seconds=settings.JWT_ACCESS_TOKEN_LIFETIME),
         'iat': datetime.utcnow(),
@@ -60,8 +60,7 @@ def generate_access_token(user):
 def generate_refresh_token(user):
     """Generate JWT refresh token"""
     payload = {
-        'user_id': user.id,
-        'email': user.email,
+        'user_id': str(user.id),
         'exp': datetime.utcnow() + timedelta(seconds=settings.JWT_REFRESH_TOKEN_LIFETIME),
         'iat': datetime.utcnow(),
         'type': 'refresh'

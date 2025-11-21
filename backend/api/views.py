@@ -1,6 +1,7 @@
 """
 API Views for authentication and user management
 """
+import requests
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -14,6 +15,9 @@ from core.models import Scan
 import uuid
 from datetime import date, timedelta
 from core.report_generator import ScanReportGenerator
+from django.views.decorators.csrf import csrf_exempt
+from utils.validators import validate_password_strength
+
 
 from .serializers import (
     UserRegistrationSerializer,
@@ -39,7 +43,7 @@ from core.two_factor import (
 
 User = get_user_model()
 
-
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
@@ -47,6 +51,13 @@ def register_user(request):
     Register a new user
     POST /api/auth/register/
     """
+    # Validate password strength before serializer
+    password = request.data.get('password')
+    if password:
+        is_valid, error_msg = validate_password_strength(password)
+        if not is_valid:
+            return Response({'password': [error_msg]}, status=status.HTTP_400_BAD_REQUEST)
+
     serializer = UserRegistrationSerializer(data=request.data)
     
     if serializer.is_valid():
@@ -73,42 +84,54 @@ def register_user(request):
     # If validation fails, return errors
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def verify_email(request):
-    print("🔍 VERIFY EMAIL VIEW CALLED")
-    print(f"Method: {request.method}")
-    print(f"Path: {request.path}")
-    print(f"Headers: {dict(request.headers)}")
-    print(f"Data: {request.data}")
     """
     Verify 6-digit email code
     POST /api/auth/verify-email/
     body: { "email": "...", "code": "123456" }
     """
+    print(f"Verify email called with data: {request.data}")
+    
     email = request.data.get('email')
     code = request.data.get('code')
 
     if not email or not code:
-        return Response({'error': 'Email and code are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'error': 'Email and code are required.'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     try:
         user = User.objects.get(email=email.lower())
     except User.DoesNotExist:
-        return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {'error': 'User not found.'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
 
-    # find the latest matching code for this user
+    # Find the latest matching code for this user
     from core.models import EmailVerificationCode
-    ev = EmailVerificationCode.objects.filter(user=user, code=code, used=False).order_by('-created_at').first()
+    ev = EmailVerificationCode.objects.filter(
+        user=user, 
+        code=code, 
+        used=False
+    ).order_by('-created_at').first()
 
     if not ev:
-        return Response({'error': 'Invalid code.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'error': 'Invalid code.'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     if not ev.is_valid():
-        return Response({'error': 'Code expired.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'error': 'Code expired.'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-    # mark as used and verify user
+    # Mark as used and verify user
     ev.used = True
     ev.save(update_fields=['used'])
 
@@ -116,8 +139,12 @@ def verify_email(request):
     user.is_active = True
     user.save(update_fields=['email_verified', 'is_active'])
 
-    return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
+    return Response(
+        {'message': 'Email verified successfully.'}, 
+        status=status.HTTP_200_OK
+    )
 
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def resend_verification(request):
@@ -201,6 +228,106 @@ def login_user(request):
         }
     }, status=status.HTTP_200_OK)
 
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def forgot_password(request):
+    """
+    Send password reset code to user's email
+    POST /api/auth/forgot-password/
+    body: { "email": "user@example.com" }
+    """
+    email = request.data.get('email')
+    
+    if not email:
+        return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email.lower())
+    except User.DoesNotExist:
+        # Don't reveal if email exists (security)
+        return Response({
+            'message': 'If an account exists with this email, a reset code has been sent.'
+        }, status=status.HTTP_200_OK)
+    
+    # Generate reset code
+    from utils.email_utils import generate_6_digit_code, send_password_reset_email
+    from core.models import PasswordResetCode
+    
+    code = generate_6_digit_code()
+    
+    # Delete any existing unused codes for this user
+    PasswordResetCode.objects.filter(user=user, used=False).delete()
+    
+    # Create new reset code
+    PasswordResetCode.objects.create(user=user, code=code)
+    
+    # Send email
+    send_password_reset_email(user.email, code)
+    
+    return Response({
+        'message': 'If an account exists with this email, a reset code has been sent.'
+    }, status=status.HTTP_200_OK)
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request):
+    """
+    Reset password using code
+    POST /api/auth/reset-password/
+    body: { "email": "...", "code": "123456", "new_password": "..." }
+    """
+    email = request.data.get('email')
+    code = request.data.get('code')
+    new_password = request.data.get('new_password')
+    
+    if not all([email, code, new_password]):
+        return Response({
+            'error': 'Email, code, and new password are required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Validate password strength
+    is_valid, error_msg = validate_password_strength(new_password)
+    if not is_valid:
+        return Response({'error': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email.lower())
+    except User.DoesNotExist:
+        return Response({'error': 'Invalid code'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Find valid reset code
+    from core.models import PasswordResetCode
+    reset_code = PasswordResetCode.objects.filter(
+        user=user, 
+        code=code, 
+        used=False
+    ).order_by('-created_at').first()
+    
+    if not reset_code:
+        return Response({'error': 'Invalid code'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not reset_code.is_valid():
+        return Response({'error': 'Code expired'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Check if new password is same as current password
+    if user.check_password(new_password):
+        return Response({
+            'error': 'New password cannot be the same as your current password'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Reset password
+    user.set_password(new_password)
+    user.save()
+    
+    # Mark code as used
+    reset_code.used = True
+    reset_code.save()
+    
+    return Response({
+        'message': 'Password reset successfully'
+    }, status=status.HTTP_200_OK)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def refresh_token(request):
@@ -284,13 +411,15 @@ def change_password(request):
             'old_password': 'Wrong password'
         }, status=status.HTTP_400_BAD_REQUEST)
     
-    # Set new password
-    user.set_password(serializer.validated_data['new_password'])
+    # Check if new password is same as current password
+    if user.check_password(new_password):
+        return Response({
+        'error': 'New password cannot be the same as your current password'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Reset password
+    user.set_password(new_password)
     user.save()
-    
-    return Response({
-        'message': 'Password changed successfully'
-    }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -346,60 +475,121 @@ def enable_2fa(request):
 @permission_classes([AllowAny])
 def google_auth(request):
     """
-    Authenticate user with Google OAuth token
+    Authenticate user with Google OAuth access token
     POST /api/auth/google/
-    body: { "token": "google_id_token" }
+    body: { "access_token": "google_access_token" }
     """
-    from google.oauth2 import id_token
-    from google.auth.transport import requests as google_requests
+    print(f"Google auth request received")
+    print(f"Request data: {request.data}")
     
-    token = request.data.get('token')
+    access_token = request.data.get('access_token')
     
-    if not token:
-        return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
-    
+    if not access_token:
+        print("No access_token provided")
+        return Response({'error': 'Google access token is required'}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
-        # Verify Google token
-        idinfo = id_token.verify_oauth2_token(
-            token, 
-            google_requests.Request(),
-            settings.GOOGLE_CLIENT_ID
+        # Verify the access token with Google
+        print(f"Verifying token with Google: {access_token[:20]}...")
+        google_response = requests.get(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            params={'access_token': access_token}
         )
+
+        print(f"Google API response status: {google_response.status_code}")
         
-        email = idinfo['email']
-        first_name = idinfo.get('given_name', '')
-        last_name = idinfo.get('family_name', '')
+        if google_response.status_code != 200:
+            print(f"Google API error: {google_response.text}")
+            return Response(
+                {'error': 'Invalid Google access token'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        user_data = google_response.json()
+        print(f"Google user data received: {user_data}")
         
-        # Get or create user
-        user, created = User.objects.get_or_create(
-            email=email.lower(),
-            defaults={
-                'first_name': first_name,
-                'last_name': last_name,
-                'email_verified': True,  # Google emails are already verified
-                'is_active': True
-            }
-        )
-        
-        # Generate tokens
-        access_token = generate_access_token(user)
+        # Extract user information
+        google_id = user_data.get('sub')
+        email = user_data.get('email')
+        first_name = user_data.get('given_name', '')
+        last_name = user_data.get('family_name', '')
+
+        if not email:
+            print("No email in Google response")
+            return Response(
+                {'error': 'Email not provided by Google'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        print(f"Processing user: {email}")
+
+        # User lookup/creation logic
+        user = None
+        try:
+            # First try: Find by Google ID
+            user = User.objects.get(google_oauth_id=google_id)
+            print(f"Found existing user by Google ID: {user.email}")
+        except User.DoesNotExist:
+            try:
+                # Second try: Find by email
+                user = User.objects.get(email=email)
+                print(f"Found existing user by email: {user.email}")
+                # Link Google account if not already linked
+                if not user.google_oauth_id:
+                    user.google_oauth_id = google_id
+                    user.email_verified = True
+                    user.save()
+                    print("Linked Google account to existing user")
+            except User.DoesNotExist:
+                # Third: Create new user
+                print("Creating new user from Google data")
+                user = User.objects.create_user(
+                    email=email,
+                    password=None,  # No password for Google users
+                    first_name=first_name,
+                    last_name=last_name,
+                    google_oauth_id=google_id,
+                    # Required fields with default values
+                    age=25,  # Default age
+                    gender='N',  # Prefer not to say
+                    country='Unknown',
+                    occupation='Not specified',
+                    role='personal',
+                    is_active=True,
+                    email_verified=True,  # Google emails are verified
+                )
+
+        # Generate JWT tokens
+        access_token_jwt = generate_access_token(user)
         refresh_token_str = generate_refresh_token(user)
-        
+
         # Update last login
         user.last_login = timezone.now()
         user.save(update_fields=['last_login'])
-        
+
+        print(f"Google auth successful for user: {user.email}")
+
         return Response({
             'message': 'Google authentication successful',
             'user': UserSerializer(user).data,
             'tokens': {
-                'access': access_token,
+                'access': access_token_jwt,
                 'refresh': refresh_token_str
             }
         }, status=status.HTTP_200_OK)
-        
-    except ValueError as e:
-        return Response({'error': 'Invalid Google token'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    except requests.RequestException as e:
+        print(f"Request exception: {e}")
+        return Response(
+            {'error': 'Failed to verify Google token'}, 
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    except Exception as e:
+        print(f"General exception: {e}")
+        return Response(
+            {'error': f'Authentication failed: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -523,11 +713,12 @@ def verify_2fa_login(request):
 
 # ==================== SCAN MANAGEMENT VIEWS ====================
 
+@csrf_exempt 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_scan(request):
     """
-    Upload medical scan image
+    Upload medical scan image and run AI analysis
     POST /api/scans/upload/
     """
     serializer = ScanUploadSerializer(data=request.data)
@@ -545,40 +736,52 @@ def upload_scan(request):
     
     # Save image
     saved_path = default_storage.save(filepath, image)
+    full_image_path = os.path.join(settings.MEDIA_ROOT, saved_path)
     
-    # For now, create dummy prediction results (no ML model yet)
-    import random
-    risk_levels = ['low', 'moderate', 'high']
-    dummy_risk = random.choice(risk_levels)
-    dummy_confidence = round(random.uniform(0.6, 0.95), 2)
-    
-    dummy_prediction = {
-        'risk_level': dummy_risk,
-        'confidence': dummy_confidence,
-        'regions': [
-            {'id': 1, 'attention': 0.42, 'description': 'Region of interest 1'},
-            {'id': 2, 'attention': 0.28, 'description': 'Region of interest 2'},
-            {'id': 3, 'attention': 0.19, 'description': 'Region of interest 3'}
-        ],
-        'note': 'This is a dummy prediction. ML model not integrated yet.'
-    }
-    
-    # Create scan record
-    scan = Scan.objects.create(
-        user=request.user,
-        image_path=saved_path,
-        risk_level=dummy_risk,
-        confidence_score=dummy_confidence,
-        prediction_result=dummy_prediction,
-        notes=notes,
-        processing_time=round(random.uniform(1.0, 3.0), 2),
-        retention_until=date.today() + timedelta(days=7*365)
-    )
-    
-    return Response({
-        'message': 'Scan uploaded successfully',
-        'scan': ScanSerializer(scan).data
-    }, status=status.HTTP_201_CREATED)
+    try:
+        # ===== RUN REAL AI MODEL =====
+        from core.ml_models.ecg_predictor import ECGPredictor
+        
+        predictor = ECGPredictor()
+        prediction = predictor.predict(full_image_path)
+        
+        # Build prediction result for database
+        prediction_result = {
+            'diagnosis': prediction['diagnosis'],
+            'confidence': prediction['confidence'],
+            'risk_level': prediction['risk_level'],
+            'probabilities': prediction['probabilities'],
+            'interpretation': prediction['interpretation'],
+            'metadata': prediction['metadata']
+        }
+        
+        # Create scan record
+        scan = Scan.objects.create(
+            user=request.user,
+            image_path=saved_path,
+            attention_map_path=prediction['attention_map_path'],
+            risk_level=prediction['risk_level'],
+            confidence_score=prediction['confidence'],
+            prediction_result=prediction_result,
+            notes=notes,
+            processing_time=prediction['processing_time'],
+            retention_until=date.today() + timedelta(days=7*365)
+        )
+        
+        return Response({
+            'message': 'Scan analyzed successfully',
+            'scan': ScanSerializer(scan).data
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        # If model fails, delete uploaded image and return error
+        if default_storage.exists(saved_path):
+            default_storage.delete(saved_path)
+        
+        return Response({
+            'error': f'Analysis failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 @api_view(['GET'])
@@ -768,3 +971,69 @@ def download_report(request, scan_id):
     response['Content-Disposition'] = f'attachment; filename="CVD_Report_{scan_id}.pdf"'
     
     return response
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def delete_account(request):
+    """
+    Delete user account permanently
+    POST /api/auth/delete-account/
+    body: { "password": "user_password" }
+    """
+    password = request.data.get('password')
+    
+    if not password:
+        return Response({'error': 'Password is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Verify password
+    if not request.user.check_password(password):
+        return Response({'error': 'Incorrect password'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get user email for confirmation message
+    user_email = request.user.email
+    
+    # Delete the user (this will cascade delete related data)
+    request.user.delete()
+    
+    return Response({
+        'message': f'Account {user_email} has been permanently deleted'
+    }, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([])
+def debug_google_token(request):
+    """Debug endpoint to test Google token verification"""
+    try:
+        access_token = request.data.get('access_token')
+        
+        if not access_token:
+            return Response({'error': 'No access token provided'}, status=400)
+
+        print(f"Debug: Testing Google token: {access_token[:20]}...")
+        
+        # Test the token with Google
+        response = requests.get(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            params={'access_token': access_token}
+        )
+        
+        print(f"Debug: Google API response status: {response.status_code}")
+        
+        if response.status_code == 200:
+            user_data = response.json()
+            print(f"Debug: Google user data: {user_data}")
+            return Response({
+                'status': 'valid',
+                'user_data': user_data
+            })
+        else:
+            print(f"Debug: Google API error: {response.text}")
+            return Response({
+                'status': 'invalid', 
+                'google_status_code': response.status_code,
+                'google_response': response.text
+            }, status=400)
+            
+    except Exception as e:
+        print(f"Debug: Exception: {str(e)}")
+        return Response({'error': str(e)}, status=500)

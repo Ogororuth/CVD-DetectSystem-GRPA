@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { scansAPI } from '@/app/lib/api';
+import { ChevronLeft, Upload, X, AlertCircle, Info } from 'lucide-react';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -16,14 +17,12 @@ export default function UploadPage() {
   const [dragActive, setDragActive] = useState(false);
 
   const handleFileSelect = (file: File) => {
-    // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
     if (!validTypes.includes(file.type)) {
       setError('Please upload a JPG or PNG image');
       return;
     }
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       setError('File size must be less than 10MB');
       return;
@@ -32,7 +31,6 @@ export default function UploadPage() {
     setSelectedFile(file);
     setError('');
 
-    // Create preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setPreviewUrl(reader.result as string);
@@ -84,9 +82,7 @@ export default function UploadPage() {
 
       const response = await scansAPI.upload(formData);
       
-      // Success! Redirect to scan detail or dashboard
-      alert('ECG uploaded successfully! Risk: ' + response.data.scan.risk_level);
-      router.push('/dashboard');
+      router.push(`/scans/${response.data.scan.id}`);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Upload failed. Please try again.');
     } finally {
@@ -104,57 +100,43 @@ export default function UploadPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <button
             onClick={() => router.push('/dashboard')}
-            className="text-indigo-600 hover:text-indigo-700 flex items-center gap-2 mb-4"
+            className="text-blue-600 hover:text-blue-700 flex items-center gap-2 mb-4 text-xs font-medium"
           >
-            ← Back to Dashboard
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Upload ECG Image</h1>
-          <p className="text-gray-600 mt-2">
-            Upload your ECG image for AI-powered heart disease risk assessment
+          <h1 className="text-xl font-semibold text-gray-900">ECG Analysis</h1>
+          <p className="text-gray-600 mt-1 text-xs">
+            Upload electrocardiogram image for cardiac assessment
           </p>
         </div>
 
-        {/* Upload Card */}
-        <div className="bg-white rounded-xl shadow-sm border p-8">
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
           {!selectedFile ? (
-            // Drag & Drop Area
             <div
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-12 text-center transition ${
+              className={`border-2 border-dashed rounded-lg p-10 text-center transition ${
                 dragActive
-                  ? 'border-indigo-500 bg-indigo-50'
-                  : 'border-gray-300 hover:border-indigo-400'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-300 hover:border-blue-400'
               }`}
             >
-              <div className="mb-6">
-                <div className="inline-block p-4 bg-indigo-100 rounded-full mb-4">
-                  <svg
-                    className="w-12 h-12 text-indigo-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
+              <div className="mb-4">
+                <div className="inline-block p-3 bg-gray-100 rounded-md mb-3">
+                  <Upload className="w-8 h-8 text-gray-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Drop your ECG image here
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                  Select ECG Image
                 </h3>
-                <p className="text-gray-600 mb-4">or click to browse</p>
-                <p className="text-sm text-gray-500">
-                  Supported: JPG, PNG • Max size: 10MB
+                <p className="text-gray-600 mb-3 text-xs">Drag and drop or click to browse</p>
+                <p className="text-xs text-gray-500">
+                  Formats: JPG, PNG • Maximum: 10MB
                 </p>
               </div>
 
@@ -168,79 +150,77 @@ export default function UploadPage() {
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+                className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium text-xs"
               >
-                Select Image
+                Choose File
               </button>
             </div>
           ) : (
-            // Preview & Upload
             <div>
-              {/* Image Preview */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
                   Selected Image
                 </label>
-                <div className="relative border rounded-lg overflow-hidden">
-                  <img
-                    src={previewUrl}
-                    alt="ECG Preview"
-                    className="w-full h-64 object-contain bg-gray-50"
-                  />
+                <div className="relative border border-gray-200 rounded-lg overflow-hidden">
+                  {previewUrl && (
+                    <img
+                      src={previewUrl || undefined}
+                      alt="ECG Preview"
+                      className="w-full h-56 object-contain bg-gray-50"
+                    />
+                  )}
                   <button
                     onClick={handleCancel}
-                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition"
+                    className="absolute top-2 right-2 p-1.5 bg-white border border-gray-200 text-gray-700 rounded-md hover:bg-gray-50 transition"
                   >
-                    ✕
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">
-                  {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                <p className="text-xs text-gray-600 mt-2">
+                  {selectedFile.name} • {(selectedFile.size / 1024).toFixed(1)} KB
                 </p>
               </div>
 
-              {/* Notes */}
-              <div className="mb-6">
-                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
-                  Notes (Optional)
+              <div className="mb-4">
+                <label htmlFor="notes" className="block text-xs font-medium text-gray-700 mb-2">
+                  Clinical Notes (Optional)
                 </label>
                 <textarea
                   id="notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Add any relevant notes about this ECG scan..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 text-xs"
+                  placeholder="Enter relevant clinical observations"
                 />
               </div>
 
-              {/* Error Message */}
               {error && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-                  {error}
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-700">{error}</p>
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <button
                   onClick={handleUpload}
                   disabled={uploading}
-                  className="flex-1 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed text-xs"
                 >
                   {uploading ? (
                     <span className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      Analyzing...
+                      <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div>
+                      Processing Analysis
                     </span>
                   ) : (
-                    '🚀 Upload & Analyze'
+                    'Submit for Analysis'
                   )}
                 </button>
                 <button
                   onClick={handleCancel}
                   disabled={uploading}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium disabled:opacity-50"
+                  className="px-5 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition font-medium disabled:opacity-50 text-xs"
                 >
                   Cancel
                 </button>
@@ -249,15 +229,17 @@ export default function UploadPage() {
           )}
         </div>
 
-        {/* Info Section */}
-        <div className="mt-6 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-          <h3 className="font-semibold text-blue-900 mb-2">📋 Before You Upload</h3>
-          <ul className="text-sm text-blue-800 space-y-2">
-            <li>• Ensure the ECG image is clear and properly lit</li>
-            <li>• All leads should be visible in the image</li>
-            <li>• Supported formats: JPG, PNG (max 10MB)</li>
-            <li>• Analysis typically takes 2-5 seconds</li>
-          </ul>
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+          <Info className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-blue-900 mb-1 text-xs">Image Requirements</h3>
+            <ul className="text-xs text-blue-800 space-y-1">
+              <li>Clear image with all leads visible</li>
+              <li>Adequate lighting and contrast</li>
+              <li>Formats: JPEG, PNG (max 10MB)</li>
+              <li>Processing time: 2-5 seconds</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

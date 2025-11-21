@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '@/app/lib/api';
+import { ChevronLeft, User, Shield, Calendar, X } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -10,6 +11,12 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [twoFAModal, setTwoFAModal] = useState(false);
+  const [qrCode, setQrCode] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [disablePassword, setDisablePassword] = useState('');
+  const [twoFALoading, setTwoFALoading] = useState(false);
+  const [twoFAError, setTwoFAError] = useState('');
   
   const [formData, setFormData] = useState({
     first_name: '',
@@ -40,7 +47,7 @@ export default function ProfilePage() {
       });
       setLoading(false);
     } catch (err) {
-      alert('Failed to load profile');
+      alert('Unable to load profile');
       router.push('/dashboard');
     }
   };
@@ -52,7 +59,7 @@ export default function ProfilePage() {
         ...formData,
         age: parseInt(formData.age),
       });
-      alert('Profile updated successfully!');
+      alert('Profile updated successfully');
       setEditing(false);
       fetchProfile();
     } catch (err: any) {
@@ -62,58 +69,238 @@ export default function ProfilePage() {
     }
   };
 
+  const enable2FA = async () => {
+    setTwoFALoading(true);
+    setTwoFAError('');
+
+    try {
+      const response = await authAPI.enable2FA();
+      setQrCode(response.data.qr_code);
+      setTwoFAModal(true);
+    } catch (err: any) {
+      setTwoFAError(err.response?.data?.error || 'Failed to enable two-factor authentication');
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const verify2FA = async () => {
+    if (!verificationCode) {
+      setTwoFAError('Please enter verification code');
+      return;
+    }
+
+    setTwoFALoading(true);
+    setTwoFAError('');
+
+    try {
+      await authAPI.verify2FA(verificationCode);
+      setTwoFAModal(false);
+      setQrCode('');
+      setVerificationCode('');
+      fetchProfile();
+    } catch (err: any) {
+      setTwoFAError(err.response?.data?.error || 'Invalid verification code');
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const disable2FA = async () => {
+    if (!disablePassword) {
+      setTwoFAError('Please enter your password');
+      return;
+    }
+
+    setTwoFALoading(true);
+    setTwoFAError('');
+
+    try {
+      await authAPI.disable2FA(disablePassword);
+      setTwoFAModal(false);
+      setDisablePassword('');
+      fetchProfile();
+    } catch (err: any) {
+      setTwoFAError(err.response?.data?.error || 'Failed to disable two-factor authentication');
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <button
           onClick={() => router.push('/dashboard')}
-          className="text-indigo-600 hover:text-indigo-700 flex items-center gap-2 mb-6"
+          className="text-blue-600 hover:text-blue-700 flex items-center gap-2 mb-6 text-sm font-medium"
         >
-          ← Back to Dashboard
+          <ChevronLeft className="w-4 h-4" />
+          <span>Back to Dashboard</span>
         </button>
 
-        {/* Profile Header */}
-        <div className="bg-white rounded-xl shadow-sm border p-8 mb-6">
-          <div className="flex items-center gap-6">
-            <div className="w-24 h-24 rounded-full bg-indigo-600 flex items-center justify-center text-white text-3xl font-bold">
+        <div className="bg-white rounded-lg border border-gray-200 p-8 mb-6">
+          <div className="flex items-start gap-6">
+            <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-semibold flex-shrink-0">
               {user.first_name[0]}{user.last_name[0]}
             </div>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl font-semibold text-gray-900">
                 {user.first_name} {user.last_name}
               </h1>
-              <p className="text-gray-600 mt-1">{user.email}</p>
-              <div className="flex gap-3 mt-3">
-                <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium capitalize">
+              <p className="text-gray-600 mt-1 text-sm">{user.email}</p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium capitalize border border-blue-100">
                   {user.role}
                 </span>
                 {user.two_fa_enabled && (
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                    🔒 2FA Enabled
+                  <span className="px-3 py-1 bg-green-50 text-green-700 rounded-md text-xs font-medium border border-green-100">
+                    Two-Factor Enabled
                   </span>
                 )}
               </div>
             </div>
-            <button
-              onClick={() => setEditing(!editing)}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
-            >
-              {editing ? 'Cancel' : '✏️ Edit'}
-            </button>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={() => setEditing(!editing)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition text-sm font-medium"
+              >
+                {editing ? 'Cancel' : 'Edit Profile'}
+              </button>
+              {!user.two_fa_enabled ? (
+                <button
+                  onClick={enable2FA}
+                  disabled={twoFALoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>{twoFALoading ? 'Setting Up...' : 'Enable 2FA'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setTwoFAModal(true)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition text-sm font-medium flex items-center gap-2"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>Security</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Profile Information */}
-        <div className="bg-white rounded-xl shadow-sm border p-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Personal Information</h2>
+        {twoFAModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Two-Factor Authentication
+                </h3>
+                <button
+                  onClick={() => setTwoFAModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {twoFAError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-700">{twoFAError}</p>
+                </div>
+              )}
+
+              {!user.two_fa_enabled && qrCode ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Scan this QR code with your authenticator application
+                  </p>
+                  
+                  <div className="flex justify-center p-4 bg-gray-50 rounded-md border border-gray-200">
+                    <img src={qrCode} alt="QR Code" className="w-48 h-48" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Verification Code
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-mono text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="000000"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={verify2FA}
+                      disabled={twoFALoading || verificationCode.length !== 6}
+                      className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+                    >
+                      {twoFALoading ? 'Verifying...' : 'Verify and Enable'}
+                    </button>
+                    <button
+                      onClick={() => setTwoFAModal(false)}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : user.two_fa_enabled ? (
+                <div className="space-y-4">
+                  <div className="p-3 bg-green-50 rounded-md border border-green-200">
+                    <span className="text-sm font-medium text-green-800">
+                      Two-factor authentication is currently enabled
+                    </span>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Enter password to disable
+                    </label>
+                    <input
+                      type="password"
+                      value={disablePassword}
+                      onChange={(e) => setDisablePassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="Your password"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={disable2FA}
+                      disabled={twoFALoading}
+                      className="flex-1 bg-red-600 text-white py-2 rounded-md hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
+                    >
+                      {twoFALoading ? 'Disabling...' : 'Disable 2FA'}
+                    </button>
+                    <button
+                      onClick={() => setTwoFAModal(false)}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white rounded-lg border border-gray-200 p-8 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Personal Information</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -125,10 +312,10 @@ export default function ProfilePage() {
                   type="text"
                   value={formData.first_name}
                   onChange={(e) => setFormData({...formData, first_name: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-medium text-sm"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg">{user.first_name}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-md text-gray-900 text-sm">{user.first_name}</p>
               )}
             </div>
 
@@ -141,10 +328,10 @@ export default function ProfilePage() {
                   type="text"
                   value={formData.last_name}
                   onChange={(e) => setFormData({...formData, last_name: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-medium text-sm"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg">{user.last_name}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-md text-gray-900 text-sm">{user.last_name}</p>
               )}
             </div>
 
@@ -157,10 +344,10 @@ export default function ProfilePage() {
                   type="number"
                   value={formData.age}
                   onChange={(e) => setFormData({...formData, age: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-medium text-sm"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg">{user.age}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-md text-gray-900 text-sm">{user.age}</p>
               )}
             </div>
 
@@ -172,7 +359,7 @@ export default function ProfilePage() {
                 <select
                   value={formData.gender}
                   onChange={(e) => setFormData({...formData, gender: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-medium text-sm"
                 >
                   <option value="M">Male</option>
                   <option value="F">Female</option>
@@ -180,7 +367,7 @@ export default function ProfilePage() {
                   <option value="N">Prefer not to say</option>
                 </select>
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg">
+                <p className="px-4 py-2 bg-gray-50 rounded-md text-gray-900 text-sm">
                   {user.gender === 'M' ? 'Male' : user.gender === 'F' ? 'Female' : user.gender === 'O' ? 'Other' : 'Prefer not to say'}
                 </p>
               )}
@@ -195,10 +382,10 @@ export default function ProfilePage() {
                   type="text"
                   value={formData.country}
                   onChange={(e) => setFormData({...formData, country: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-medium text-sm"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg">{user.country}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-md text-gray-900 text-sm">{user.country}</p>
               )}
             </div>
 
@@ -211,10 +398,10 @@ export default function ProfilePage() {
                   type="text"
                   value={formData.occupation}
                   onChange={(e) => setFormData({...formData, occupation: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-medium text-sm"
                 />
               ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg">{user.occupation}</p>
+                <p className="px-4 py-2 bg-gray-50 rounded-md text-gray-900 text-sm">{user.occupation}</p>
               )}
             </div>
           </div>
@@ -224,13 +411,13 @@ export default function ProfilePage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium disabled:opacity-50"
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium disabled:opacity-50"
               >
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? 'Saving Changes...' : 'Save Changes'}
               </button>
               <button
                 onClick={() => setEditing(false)}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition text-sm font-medium"
               >
                 Cancel
               </button>
@@ -238,29 +425,32 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Account Stats */}
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
-            <p className="text-sm text-gray-600">Member Since</p>
-            <p className="text-lg font-bold text-gray-900 mt-1">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+            <Calendar className="w-5 h-5 text-gray-400 mx-auto mb-2" />
+            <p className="text-xs text-gray-600 mb-1">Member Since</p>
+            <p className="text-sm font-semibold text-gray-900">
               {new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
-            <p className="text-sm text-gray-600">Email Verified</p>
-            <p className="text-lg font-bold mt-1">
-              {user.email_verified ? '✅' : '❌'}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+            <User className="w-5 h-5 text-gray-400 mx-auto mb-2" />
+            <p className="text-xs text-gray-600 mb-1">Email Status</p>
+            <p className="text-sm font-semibold text-gray-900">
+              {user.email_verified ? 'Verified' : 'Unverified'}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
-            <p className="text-sm text-gray-600">2FA Status</p>
-            <p className="text-lg font-bold mt-1">
-              {user.two_fa_enabled ? '🔒 On' : '🔓 Off'}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+            <Shield className="w-5 h-5 text-gray-400 mx-auto mb-2" />
+            <p className="text-xs text-gray-600 mb-1">Two-Factor Auth</p>
+            <p className="text-sm font-semibold text-gray-900">
+              {user.two_fa_enabled ? 'Enabled' : 'Disabled'}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
-            <p className="text-sm text-gray-600">Last Login</p>
-            <p className="text-lg font-bold text-gray-900 mt-1">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+            <Calendar className="w-5 h-5 text-gray-400 mx-auto mb-2" />
+            <p className="text-xs text-gray-600 mb-1">Last Login</p>
+            <p className="text-sm font-semibold text-gray-900">
               {user.last_login ? new Date(user.last_login).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
             </p>
           </div>

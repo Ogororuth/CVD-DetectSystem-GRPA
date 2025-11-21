@@ -20,6 +20,10 @@ urlpatterns = [
     path('auth/me/', views.get_current_user, name='current_user'),
     path('auth/profile/', views.update_profile, name='update_profile'),
     path('auth/change-password/', views.change_password, name='change_password'),
+    path('auth/forgot-password/', views.forgot_password, name='forgot_password'),
+    path('auth/reset-password/', views.reset_password, name='reset_password'),
+    path('auth/delete-account/', views.delete_account, name='delete_account'),
+    path('auth/debug-google/', views.debug_google_token, name='debug_google_token'),
     
     # 2FA endpoints
     path('auth/2fa/enable/', views.enable_2fa, name='enable_2fa'),

@@ -16,24 +16,50 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [twoFACode, setTwoFACode] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+
+  // Load saved email if "Remember me" was checked previously
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('rememberedEmail');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
+
   const googleLogin = useGoogleLogin({
     onSuccess: async (response) => {
       try {
         setLoading(true);
+        console.log('Google OAuth response:', response);
+        
         const result = await apiClient.post('/auth/google/', {
-          token: response.access_token
+          access_token: response.access_token
         });
         
         const tokens = result.data.tokens;
-        localStorage.setItem('accessToken', tokens.access);
-        localStorage.setItem('refreshToken', tokens.refresh);
-        router.push('/dashboard');
+        
+        if (rememberMe) {
+          localStorage.setItem('accessToken', tokens.access);
+          localStorage.setItem('refreshToken', tokens.refresh);
+        } else {
+          sessionStorage.setItem('accessToken', tokens.access);
+          sessionStorage.setItem('refreshToken', tokens.refresh);
+        }
+        
+        // Use window.location instead of router.push
+        window.location.href = '/dashboard';
       } catch (err: any) {
-        setError('Google sign-in failed');
+        console.error('Google OAuth error:', err);
+        setError(err.response?.data?.error || 'Google sign-in failed');
+      } finally {
         setLoading(false);
       }
     },
-    onError: () => setError('Google sign-in failed'),
+    onError: () => {
+      console.error('Google OAuth error');
+      setError('Google sign-in failed');
+    }
   });
   
   useEffect(() => {
@@ -62,12 +88,28 @@ export default function LoginPage() {
         const tokens = response.data.tokens;
         
         if (tokens && tokens.access && tokens.refresh) {
-          localStorage.setItem('accessToken', tokens.access);
-          localStorage.setItem('refreshToken', tokens.refresh);
+          // Handle "Remember Me" functionality
+          if (rememberMe) {
+            localStorage.setItem('accessToken', tokens.access);
+            localStorage.setItem('refreshToken', tokens.refresh);
+            localStorage.setItem('rememberedEmail', email);
+            localStorage.setItem('rememberMe', 'true');
+          } else {
+            sessionStorage.setItem('accessToken', tokens.access);
+            sessionStorage.setItem('refreshToken', tokens.refresh);
+            localStorage.removeItem('rememberedEmail');
+            localStorage.removeItem('rememberMe');
+          }
           
           console.log('Tokens saved successfully');
+          console.log('Storage check:', {
+            localStorage: localStorage.getItem('accessToken')?.substring(0, 20),
+            sessionStorage: sessionStorage.getItem('accessToken')?.substring(0, 20)
+          });
           
-          router.push('/dashboard');
+          // CRITICAL FIX: Use window.location instead of router.push
+          // This forces a full page reload which ensures the auth state is properly initialized
+          window.location.href = '/dashboard';
         } else {
           console.error('Invalid response structure:', response.data);
           throw new Error('Invalid token response');
@@ -76,7 +118,6 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error('Login error:', err);
       
-      // Check for inactive account (unverified email)
       if (err.response?.status === 403 && err.response?.data?.error?.includes('inactive')) {
         setError('Please verify your email before logging in. Check your inbox for the verification code.');
       } else {
@@ -97,10 +138,20 @@ export default function LoginPage() {
       const tokens = response.data.tokens;
       
       if (tokens && tokens.access && tokens.refresh) {
-        localStorage.setItem('accessToken', tokens.access);
-        localStorage.setItem('refreshToken', tokens.refresh);
+        if (rememberMe) {
+          localStorage.setItem('accessToken', tokens.access);
+          localStorage.setItem('refreshToken', tokens.refresh);
+          localStorage.setItem('rememberedEmail', email);
+          localStorage.setItem('rememberMe', 'true');
+        } else {
+          sessionStorage.setItem('accessToken', tokens.access);
+          sessionStorage.setItem('refreshToken', tokens.refresh);
+          localStorage.removeItem('rememberedEmail');
+          localStorage.removeItem('rememberMe');
+        }
         
-        router.push('/dashboard');
+        // Use window.location for 2FA as well
+        window.location.href = '/dashboard';
       } else {
         throw new Error('Invalid token response');
       }
@@ -147,9 +198,23 @@ export default function LoginPage() {
                 value={twoFACode}
                 onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, ''))}
                 autoComplete="one-time-code"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-center text-2xl tracking-widest focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-center text-2xl tracking-widest focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
                 placeholder="000000"
               />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                id="remember-me-2fa"
+                name="remember-me-2fa"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label htmlFor="remember-me-2fa" className="ml-2 block text-sm text-gray-900">
+                Remember me on this device
+              </label>
             </div>
 
             <div>
@@ -165,7 +230,7 @@ export default function LoginPage() {
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => googleLogin()}
+                onClick={() => setRequires2FA(false)}
                 className="text-sm text-indigo-600 hover:text-indigo-500"
               >
                 ← Back to login
@@ -218,7 +283,8 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                placeholder="Enter your email"
               />
             </div>
 
@@ -234,7 +300,8 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                placeholder="Enter your password"
               />
             </div>
           </div>
@@ -245,6 +312,8 @@ export default function LoginPage() {
                 id="remember-me"
                 name="remember-me"
                 type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
@@ -253,9 +322,9 @@ export default function LoginPage() {
             </div>
 
             <div className="text-sm">
-              <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+              <Link href="/auth/forgot-password" className="font-medium text-indigo-600 hover:text-indigo-500">
                 Forgot password?
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -282,7 +351,8 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => googleLogin()}
-              className="w-full inline-flex justify-center items-center py-3 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+              disabled={loading}
+              className="w-full inline-flex justify-center items-center py-3 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                 <path
@@ -308,7 +378,8 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={handleAppleLogin}
-              className="w-full inline-flex justify-center items-center py-3 px-4 border border-gray-300 rounded-md shadow-sm bg-black text-sm font-medium text-white hover:bg-gray-900 transition-colors duration-200"
+              disabled={loading}
+              className="w-full inline-flex justify-center items-center py-3 px-4 border border-gray-300 rounded-md shadow-sm bg-black text-sm font-medium text-white hover:bg-gray-900 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>

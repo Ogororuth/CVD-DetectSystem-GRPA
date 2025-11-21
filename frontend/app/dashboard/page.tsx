@@ -27,34 +27,38 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Check for token
-      const token = localStorage.getItem('accessToken');
-      console.log('Dashboard: Checking token...', token ? 'Found' : 'Not found');
+      // ✅ CHECK BOTH STORAGE LOCATIONS
+      const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+      
+      console.log('Dashboard auth check:', {
+        hasLocalStorage: !!localStorage.getItem('accessToken'),
+        hasSessionStorage: !!sessionStorage.getItem('accessToken'),
+        tokenFound: !!token
+      });
       
       if (!token) {
-        console.log('Dashboard: No token, redirecting to login');
+        console.log('No token found, redirecting to login');
         router.push('/auth/login');
         return;
       }
 
       try {
-        console.log('Dashboard: Fetching user and stats...');
         const [userRes, statsRes] = await Promise.all([
           authAPI.getCurrentUser(),
           scansAPI.getStatistics()
         ]);
         
-        console.log('Dashboard: Data fetched successfully');
         setUser(userRes.data);
         setStats(statsRes.data);
         setLoading(false);
       } catch (error: any) {
-        console.error('Dashboard: Failed to fetch data:', error);
-        
+        console.error('Dashboard data fetch error:', error);
         if (error.response?.status === 401) {
-          console.log('Dashboard: 401 error, clearing tokens and redirecting');
+          // Clear both storages
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
+          sessionStorage.removeItem('accessToken');
+          sessionStorage.removeItem('refreshToken');
           router.push('/auth/login');
         } else {
           setError('Failed to load dashboard data');
@@ -67,8 +71,11 @@ export default function DashboardPage() {
   }, [router]);
 
   const handleLogout = () => {
+    // ✅ CLEAR BOTH STORAGE LOCATIONS
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
     router.push('/auth/login');
   };
 
@@ -77,7 +84,7 @@ export default function DashboardPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+          <p className="mt-4 text-gray-600">Loading dashboard</p>
         </div>
       </div>
     );
@@ -86,15 +93,15 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Error Loading Dashboard</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Dashboard</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium"
           >
             Retry
           </button>
@@ -110,55 +117,55 @@ export default function DashboardPage() {
         {/* Logo */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-blue-600 rounded-md flex items-center justify-center">
               <Heart className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">CVD Detect</h1>
-              <p className="text-xs text-gray-500">AI Heart Analysis</p>
+              <h1 className="text-lg font-semibold text-gray-900">CVD Detect</h1>
+              <p className="text-xs text-gray-500">Heart disease detection System</p>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
-          <div className="mb-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">Main</p>
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Navigation</p>
             <button
               onClick={() => router.push('/dashboard')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-50 text-blue-700 font-medium transition"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md bg-blue-50 text-blue-700 font-medium transition text-sm"
             >
               <Home className="w-5 h-5" />
               <span>Dashboard</span>
             </button>
             <button
               onClick={() => router.push('/scans')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-50 transition text-sm"
             >
               <Activity className="w-5 h-5" />
-              <span>My Scans</span>
+              <span>Scan History</span>
             </button>
             <button
               onClick={() => router.push('/upload')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-50 transition text-sm"
             >
               <Upload className="w-5 h-5" />
-              <span>Upload ECG</span>
+              <span>New Analysis</span>
             </button>
           </div>
 
-          <div className="mb-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">Reports</p>
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Reports</p>
             <button
               onClick={() => router.push('/reports')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-50 transition text-sm"
             >
               <FileText className="w-5 h-5" />
-              <span>All Reports</span>
+              <span>Reports</span>
             </button>
             <button
-              onClick={() => alert('Analytics page coming soon')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              onClick={() => router.push('/analytics')}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-50 transition text-sm"
             >
               <BarChart3 className="w-5 h-5" />
               <span>Analytics</span>
@@ -166,17 +173,17 @@ export default function DashboardPage() {
           </div>
 
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">Account</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Settings</p>
             <button
               onClick={() => router.push('/profile')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-50 transition text-sm"
             >
               <User className="w-5 h-5" />
               <span>Profile</span>
             </button>
             <button
               onClick={() => router.push('/settings')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-50 transition text-sm"
             >
               <Settings className="w-5 h-5" />
               <span>Settings</span>
@@ -199,10 +206,10 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition border border-gray-200"
           >
             <LogOut className="w-4 h-4" />
-            <span>Logout</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </div>
@@ -211,15 +218,14 @@ export default function DashboardPage() {
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-8 py-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Welcome back, {user?.first_name}
+          <h2 className="text-2xl font-semibold text-gray-900">
+            Welcome, {user?.first_name}
           </h2>
-          <p className="text-gray-600 mt-1">
-            {user?.role === 'student' && 'Student Mode'}
-            {user?.role === 'researcher' && 'Researcher Mode'}
-            {user?.role === 'healthcare' && 'Healthcare Professional Mode'}
-            {user?.role === 'personal' && 'Personal Use Mode'}
-            {stats && ` • ${stats.total_scans} total scans`}
+          <p className="text-gray-600 mt-1 text-sm">
+            {user?.role === 'student' && 'Student'}
+            {user?.role === 'researcher' && 'Researcher'}
+            {user?.role === 'healthcare' && 'Healthcare'}
+            {user?.role === 'personal' && 'Personal'}
           </p>
         </div>
 
@@ -228,88 +234,72 @@ export default function DashboardPage() {
           {/* Stats Grid */}
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-xl border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <Activity className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 mb-1">Total Scans</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.total_scans}</p>
+              <div className="bg-white p-6 rounded-lg border border-gray-200">
+                <p className="text-sm text-gray-600 mb-1">Total Analyses</p>
+                <p className="text-3xl font-semibold text-gray-900">{stats.total_scans}</p>
+                <p className="text-xs text-gray-500 mt-2">All time</p>
               </div>
 
-              <div className="bg-white p-6 rounded-xl border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
+              <div className="bg-white p-6 rounded-lg border border-gray-200">
                 <p className="text-sm text-gray-600 mb-1">Low Risk</p>
-                <p className="text-3xl font-bold text-green-600">{stats.risk_distribution.low}</p>
+                <p className="text-3xl font-semibold text-green-600">{stats.risk_distribution.low}</p>
+                <p className="text-xs text-gray-500 mt-2">Normal findings</p>
               </div>
 
-              <div className="bg-white p-6 rounded-xl border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
-                    <TrendingUp className="w-6 h-6 text-orange-600" />
-                  </div>
-                </div>
+              <div className="bg-white p-6 rounded-lg border border-gray-200">
                 <p className="text-sm text-gray-600 mb-1">Moderate Risk</p>
-                <p className="text-3xl font-bold text-orange-600">{stats.risk_distribution.moderate}</p>
+                <p className="text-3xl font-semibold text-orange-600">{stats.risk_distribution.moderate}</p>
+                <p className="text-xs text-gray-500 mt-2">Requires monitoring</p>
               </div>
 
-              <div className="bg-white p-6 rounded-xl border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
-                    <AlertCircle className="w-6 h-6 text-red-600" />
-                  </div>
-                </div>
+              <div className="bg-white p-6 rounded-lg border border-gray-200">
                 <p className="text-sm text-gray-600 mb-1">High Risk</p>
-                <p className="text-3xl font-bold text-red-600">{stats.risk_distribution.high}</p>
+                <p className="text-3xl font-semibold text-red-600">{stats.risk_distribution.high}</p>
+                <p className="text-xs text-gray-500 mt-2">Immediate attention</p>
               </div>
             </div>
           )}
 
           {/* Recent Scans */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-gray-900">Recent Scans</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Recent Analyses</h3>
               <button 
                 onClick={() => router.push('/scans')}
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                View All →
+                View All
               </button>
             </div>
 
             {stats?.total_scans > 0 ? (
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-blue-50 rounded-md flex items-center justify-center">
                       <FileText className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Latest Scan</p>
-                      <p className="text-sm text-gray-500">Recently analyzed</p>
+                      <p className="font-medium text-gray-900 text-sm">Latest Analysis</p>
+                      <p className="text-xs text-gray-500">Recently processed</p>
                     </div>
                   </div>
-                  <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                  <span className="px-3 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-md border border-green-100">
                     Low Risk
                   </span>
                 </div>
               </div>
             ) : (
               <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-gray-100 rounded-md flex items-center justify-center mx-auto mb-4">
                   <Activity className="w-8 h-8 text-gray-400" />
                 </div>
-                <p className="text-gray-600 mb-4">No scans yet</p>
+                <p className="text-gray-600 mb-4 text-sm">No analyses performed yet</p>
                 <button
                   onClick={() => router.push('/upload')}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium text-sm"
                 >
-                  Upload Your First ECG
+                  Start First Analysis
                 </button>
               </div>
             )}

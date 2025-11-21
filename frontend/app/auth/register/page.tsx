@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authAPI } from '@/app/lib/api';
+import PasswordStrengthIndicator from '@/app/components/PasswordStrengthIndicator';
+import { validatePassword } from '@/app/lib/passwordValidator';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -32,6 +34,13 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validate password strength
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.isValid) {
+      setError('Password does not meet security requirements');
+      return;
+    }
 
     // Validation
     if (formData.password !== formData.password_confirm) {
@@ -73,14 +82,18 @@ export default function RegisterPage() {
       let errorMessage = 'Registration failed. Please try again.';
       
       if (errorData) {
-        if (errorData.email) errorMessage = `Email: ${errorData.email[0]}`;
-        else if (errorData.password) errorMessage = `Password: ${errorData.password[0]}`;
-        else if (errorData.first_name) errorMessage = `First name: ${errorData.first_name[0]}`;
-        else if (errorData.last_name) errorMessage = `Last name: ${errorData.last_name[0]}`;
-        else if (errorData.age) errorMessage = `Age: ${errorData.age[0]}`;
-        else if (errorData.gender) errorMessage = `Gender: ${errorData.gender[0]}`;
-        else if (errorData.country) errorMessage = `Country: ${errorData.country[0]}`;
-        else if (errorData.occupation) errorMessage = `Occupation: ${errorData.occupation[0]}`;
+        // Handle email errors with better messaging
+        if (errorData.email) {
+          const emailError = Array.isArray(errorData.email) ? errorData.email[0] : errorData.email;
+          errorMessage = emailError;
+        }
+        else if (errorData.password) errorMessage = Array.isArray(errorData.password) ? errorData.password[0] : errorData.password;
+        else if (errorData.first_name) errorMessage = `First name: ${Array.isArray(errorData.first_name) ? errorData.first_name[0] : errorData.first_name}`;
+        else if (errorData.last_name) errorMessage = `Last name: ${Array.isArray(errorData.last_name) ? errorData.last_name[0] : errorData.last_name}`;
+        else if (errorData.age) errorMessage = `Age: ${Array.isArray(errorData.age) ? errorData.age[0] : errorData.age}`;
+        else if (errorData.gender) errorMessage = `Gender: ${Array.isArray(errorData.gender) ? errorData.gender[0] : errorData.gender}`;
+        else if (errorData.country) errorMessage = `Country: ${Array.isArray(errorData.country) ? errorData.country[0] : errorData.country}`;
+        else if (errorData.occupation) errorMessage = `Occupation: ${Array.isArray(errorData.occupation) ? errorData.occupation[0] : errorData.occupation}`;
         else if (errorData.error) errorMessage = errorData.error;
         else if (errorData.detail) errorMessage = errorData.detail;
         else if (typeof errorData === 'string') errorMessage = errorData;
@@ -131,7 +144,8 @@ export default function RegisterPage() {
                     required
                     value={formData.first_name}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="Enter your first name"
                   />
                 </div>
 
@@ -147,7 +161,8 @@ export default function RegisterPage() {
                     required
                     value={formData.last_name}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="Enter your last name"
                   />
                 </div>
 
@@ -165,7 +180,8 @@ export default function RegisterPage() {
                     max="120"
                     value={formData.age}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="Enter your age"
                   />
                 </div>
 
@@ -180,7 +196,7 @@ export default function RegisterPage() {
                     required
                     value={formData.gender}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
                   >
                     <option value="">Select gender</option>
                     <option value="M">Male</option>
@@ -202,7 +218,8 @@ export default function RegisterPage() {
                     required
                     value={formData.country}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="Enter your country"
                   />
                 </div>
 
@@ -218,7 +235,8 @@ export default function RegisterPage() {
                     required
                     value={formData.occupation}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="Enter your occupation"
                   />
                 </div>
               </div>
@@ -240,7 +258,8 @@ export default function RegisterPage() {
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="Enter your email address"
                   />
                 </div>
 
@@ -255,7 +274,7 @@ export default function RegisterPage() {
                     required
                     value={formData.role}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
                   >
                     <option value="student">Student</option>
                     <option value="researcher">Researcher</option>
@@ -278,11 +297,10 @@ export default function RegisterPage() {
                     required
                     value={formData.password}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="Create a strong password"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Must be at least 8 characters
-                  </p>
+                  <PasswordStrengthIndicator password={formData.password} />
                 </div>
 
                 {/* Confirm Password */}
@@ -297,7 +315,8 @@ export default function RegisterPage() {
                     required
                     value={formData.password_confirm}
                     onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="Confirm your password"
                   />
                 </div>
               </div>
