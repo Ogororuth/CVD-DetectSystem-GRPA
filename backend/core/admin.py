@@ -57,7 +57,7 @@ class ScanAdmin(admin.ModelAdmin):
     
     list_display = ('id', 'user', 'risk_level', 'confidence_score', 'report_generated', 'deleted_by_user', 'created_at')
     list_filter = ('risk_level', 'report_generated', 'deleted_by_user', 'created_at')
-    search_fields = ('user__email', 'user__full_name', 'notes')
+    search_fields = ('user__email', 'user__first_name', 'user__last_name', 'notes')
     ordering = ('-created_at',)
     
     fieldsets = (
@@ -105,7 +105,7 @@ class UserPreferenceAdmin(admin.ModelAdmin):
     
     list_display = ('user', 'theme', 'email_notifications_enabled', 'scan_completion_notifications')
     list_filter = ('theme', 'email_notifications_enabled')
-    search_fields = ('user__email', 'user__full_name')
+    search_fields = ('user__email', 'user__first_name', 'user__last_name')
     
     fieldsets = (
         ('User', {

@@ -29,7 +29,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'first_name', 'last_name', 'age', 'gender',
             'country', 'occupation', 'role'
         ]
-    
+
     def validate(self, attrs):
         """Validate that passwords match"""
         if attrs['password'] != attrs['password_confirm']:
@@ -127,3 +127,18 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         if value > 120:
             raise serializers.ValidationError("Please enter a valid age.")
         return value
+
+
+class Enable2FASerializer(serializers.Serializer):
+    """Serializer for enabling 2FA"""
+    pass  # No input needed, just trigger the enable
+
+
+class Verify2FASerializer(serializers.Serializer):
+    """Serializer for verifying 2FA token"""
+    token = serializers.CharField(max_length=6, min_length=6)
+
+
+class Disable2FASerializer(serializers.Serializer):
+    """Serializer for disabling 2FA"""
+    password = serializers.CharField(required=True, write_only=True)
