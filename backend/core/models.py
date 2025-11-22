@@ -20,7 +20,7 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
     
-    def create_superuser(self, email, first_name, last_name, password=None, **extra_fields):
+    def create_superuser(self, email, password=None, **extra_fields):
         """Create and save a superuser"""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
@@ -31,7 +31,7 @@ class UserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
         
-        return self.create_user(email, password, first_name=first_name, last_name=last_name, **extra_fields)
+        return self.create_user(email, password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -97,6 +97,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.email})"
+    
+    @property
+    def full_name(self):
+        """Property for easy access to full name"""
+        return f"{self.first_name} {self.last_name}"
     
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}"
