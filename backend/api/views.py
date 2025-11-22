@@ -7,6 +7,12 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, get_user_model
 from django.utils import timezone
+import os
+from django.conf import settings
+from django.core.files.storage import default_storage
+from core.models import Scan
+import uuid
+from datetime import date, timedelta
 
 from .serializers import (
     UserRegistrationSerializer,
@@ -16,7 +22,10 @@ from .serializers import (
     UpdateProfileSerializer,
     Enable2FASerializer,
     Verify2FASerializer,
-    Disable2FASerializer
+    Disable2FASerializer,
+    ScanSerializer,
+    ScanUploadSerializer,
+    ScanListSerializer
 )
 from core.auth import generate_access_token, generate_refresh_token, get_user_from_token
 from core.two_factor import (
@@ -376,4 +385,161 @@ def verify_2fa_login(request):
             'access': access_token,
             'refresh': refresh_token_str
         }
+    }, status=status.HTTP_200_OK)
+
+# ==================== SCAN MANAGEMENT VIEWS ====================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_scan(request):
+    """
+    Upload medical scan image
+    POST /api/scans/upload/
+    """
+    serializer = ScanUploadSerializer(data=request.data)
+    
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    image = serializer.validated_data['image']
+    notes = serializer.validated_data.get('notes', '')
+    
+    # Generate unique filename
+    ext = os.path.splitext(image.name)[1]
+    filename = f"{uuid.uuid4()}{ext}"
+    filepath = os.path.join('scans', filename)
+    
+    # Save image
+    saved_path = default_storage.save(filepath, image)
+    
+    # For now, create dummy prediction results (no ML model yet)
+    import random
+    risk_levels = ['low', 'moderate', 'high']
+    dummy_risk = random.choice(risk_levels)
+    dummy_confidence = round(random.uniform(0.6, 0.95), 2)
+    
+    dummy_prediction = {
+        'risk_level': dummy_risk,
+        'confidence': dummy_confidence,
+        'regions': [
+            {'id': 1, 'attention': 0.42, 'description': 'Region of interest 1'},
+            {'id': 2, 'attention': 0.28, 'description': 'Region of interest 2'},
+            {'id': 3, 'attention': 0.19, 'description': 'Region of interest 3'}
+        ],
+        'note': 'This is a dummy prediction. ML model not integrated yet.'
+    }
+    
+    # Create scan record
+    scan = Scan.objects.create(
+        user=request.user,
+        image_path=saved_path,
+        risk_level=dummy_risk,
+        confidence_score=dummy_confidence,
+        prediction_result=dummy_prediction,
+        notes=notes,
+        processing_time=round(random.uniform(1.0, 3.0), 2),
+        retention_until=date.today() + timedelta(days=7*365)
+    )
+    
+    return Response({
+        'message': 'Scan uploaded successfully',
+        'scan': ScanSerializer(scan).data
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_scans(request):
+    """
+    Get all scans for current user (excluding soft-deleted)
+    GET /api/scans/
+    """
+    scans = Scan.objects.filter(
+        user=request.user,
+        deleted_by_user=False
+    ).order_by('-created_at')
+    
+    serializer = ScanListSerializer(scans, many=True)
+    
+    return Response({
+        'count': scans.count(),
+        'scans': serializer.data
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_scan_detail(request, scan_id):
+    """
+    Get detailed information about a specific scan
+    GET /api/scans/<id>/
+    """
+    try:
+        scan = Scan.objects.get(
+            id=scan_id,
+            user=request.user,
+            deleted_by_user=False
+        )
+    except Scan.DoesNotExist:
+        return Response({
+            'error': 'Scan not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    serializer = ScanSerializer(scan)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_scan(request, scan_id):
+    """
+    Soft delete a scan
+    DELETE /api/scans/<id>/delete/
+    """
+    try:
+        scan = Scan.objects.get(
+            id=scan_id,
+            user=request.user,
+            deleted_by_user=False
+        )
+    except Scan.DoesNotExist:
+        return Response({
+            'error': 'Scan not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    scan.soft_delete()
+    
+    return Response({
+        'message': 'Scan removed from your history'
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_scan_statistics(request):
+    """
+    Get scan statistics for current user
+    GET /api/scans/statistics/
+    """
+    user_scans = Scan.objects.filter(
+        user=request.user,
+        deleted_by_user=False
+    )
+    
+    total_scans = user_scans.count()
+    
+    risk_counts = {
+        'low': user_scans.filter(risk_level='low').count(),
+        'moderate': user_scans.filter(risk_level='moderate').count(),
+        'high': user_scans.filter(risk_level='high').count()
+    }
+    
+    week_ago = timezone.now() - timedelta(days=7)
+    recent_scans = user_scans.filter(created_at__gte=week_ago).count()
+    
+    return Response({
+        'total_scans': total_scans,
+        'risk_distribution': risk_counts,
+        'recent_scans_7days': recent_scans,
+        'reports_generated': user_scans.filter(report_generated=True).count()
     }, status=status.HTTP_200_OK)

@@ -1,6 +1,8 @@
 """
 Serializers for API endpoints
 """
+from core.models import Scan
+import os
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -142,3 +144,65 @@ class Verify2FASerializer(serializers.Serializer):
 class Disable2FASerializer(serializers.Serializer):
     """Serializer for disabling 2FA"""
     password = serializers.CharField(required=True, write_only=True)
+
+class ScanSerializer(serializers.ModelSerializer):
+    """Serializer for scan data"""
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Scan
+        fields = [
+            'id', 'user', 'user_email', 'user_name',
+            'image_path', 'attention_map_path', 'report_path',
+            'risk_level', 'confidence_score', 'prediction_result',
+            'notes', 'processing_time', 'report_generated',
+            'deleted_by_user', 'deleted_at', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'user', 'created_at', 'updated_at',
+            'attention_map_path', 'report_path', 'report_generated',
+            'deleted_by_user', 'deleted_at'
+        ]
+    
+    def get_user_name(self, obj):
+        """Get user's full name"""
+        return obj.user.get_full_name()
+
+
+class ScanUploadSerializer(serializers.Serializer):
+    """Serializer for scan image upload"""
+    image = serializers.ImageField(required=True)
+    notes = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+    
+    def validate_image(self, value):
+        """Validate image file"""
+        # Check file size (max 10MB)
+        if value.size > 10 * 1024 * 1024:
+            raise serializers.ValidationError("Image file too large. Maximum size is 10MB.")
+        
+        # Check file extension
+        valid_extensions = ['.jpg', '.jpeg', '.png', '.dcm', '.dicom']
+        ext = os.path.splitext(value.name)[1].lower()
+        
+        if ext not in valid_extensions:
+            raise serializers.ValidationError(
+                f"Unsupported file type. Allowed types: {', '.join(valid_extensions)}"
+            )
+        
+        return value
+
+
+class ScanListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for scan list"""
+    user_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Scan
+        fields = [
+            'id', 'user_name', 'risk_level', 'confidence_score',
+            'report_generated', 'created_at'
+        ]
+    
+    def get_user_name(self, obj):
+        return obj.user.get_full_name()
