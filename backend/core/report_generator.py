@@ -256,20 +256,17 @@ class ScanReportGenerator:
         # Sort by probability (highest first)
         sorted_probs = sorted(probabilities.items(), key=lambda x: x[1], reverse=True)
         
-        # Create probability table
-        prob_data = [['Classification', 'Probability', 'Bar']]
+        # Create probability table (without Bar column)
+        prob_data = [['Classification', 'Probability']]
         
         for class_name, prob in sorted_probs:
             prob_percent = f'{prob * 100:.1f}%'
-            bar_length = int(prob * 20)  # Scale to 20 characters
-            bar = '█' * bar_length + '░' * (20 - bar_length)
             prob_data.append([
                 class_name.replace('_', ' '),
-                prob_percent,
-                bar
+                prob_percent
             ])
         
-        prob_table = Table(prob_data, colWidths=[2*inch, 1.5*inch, 2.5*inch])
+        prob_table = Table(prob_data, colWidths=[3*inch, 2*inch])
         prob_table.setStyle(TableStyle([
             # Header row
             ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 11),
@@ -283,7 +280,6 @@ class ScanReportGenerator:
             ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#374151')),
             ('ALIGN', (0, 1), (0, -1), 'LEFT'),
             ('ALIGN', (1, 1), (1, -1), 'CENTER'),
-            ('ALIGN', (2, 1), (2, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('PADDING', (0, 0), (-1, -1), 10),
             
@@ -344,10 +340,11 @@ class ScanReportGenerator:
         metadata = self.prediction.get('metadata', {})
         
         metadata_data = [
-            ['Model Version:', metadata.get('model_version', 'N/A')],
-            ['Processing Device:', metadata.get('device', 'N/A')],
+            ['Model:', metadata.get('model', 'ViT-ECG')],
+            ['Interpretability:', ', '.join(metadata.get('interpretability_methods', ['N/A']))],
+            ['Processing Time:', f"{self.scan.processing_time:.2f} seconds"],
             ['Scan ID:', f'#{self.scan.id}'],
-            ['Analysis Timestamp:', self.scan.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')],
+            ['Analysis Timestamp:', self.scan.created_at.strftime('%Y-%m-%d %H:%M:%S')],
         ]
         
         if self.scan.notes:

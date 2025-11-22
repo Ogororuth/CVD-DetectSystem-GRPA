@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '@/app/lib/api';
-import { ChevronLeft, User, Shield, Calendar, X } from 'lucide-react';
+import { ChevronLeft, User, Shield, Calendar, X, Smartphone, QrCode, KeyRound } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -170,7 +170,7 @@ export default function ProfilePage() {
             <div className="flex gap-2 flex-shrink-0">
               <button
                 onClick={() => setEditing(!editing)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition text-sm font-medium"
+                className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-full hover:bg-gray-50 transition text-sm font-medium"
               >
                 {editing ? 'Cancel' : 'Edit Profile'}
               </button>
@@ -178,18 +178,18 @@ export default function ProfilePage() {
                 <button
                   onClick={enable2FA}
                   disabled={twoFALoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition text-sm font-semibold disabled:opacity-50 flex items-center gap-2 shadow-sm"
                 >
                   <Shield className="w-4 h-4" />
-                  <span>{twoFALoading ? 'Setting Up...' : 'Enable 2FA'}</span>
+                  <span>{twoFALoading ? 'Setting Up...' : 'Set up 2-Step'}</span>
                 </button>
               ) : (
                 <button
                   onClick={() => setTwoFAModal(true)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition text-sm font-medium flex items-center gap-2"
+                  className="px-5 py-2.5 border border-blue-200 text-blue-700 rounded-full hover:bg-blue-50 transition text-sm font-semibold flex items-center gap-2"
                 >
-                  <Shield className="w-4 h-4" />
-                  <span>Security</span>
+                  <KeyRound className="w-4 h-4" />
+                  <span>Manage 2-Step</span>
                 </button>
               )}
             </div>
@@ -197,104 +197,144 @@ export default function ProfilePage() {
         </div>
 
         {twoFAModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Two-Factor Authentication
-                </h3>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-500 mb-1">Security</p>
+                  <h3 className="text-2xl font-semibold text-gray-900">Google-style 2-Step Verification</h3>
+                </div>
                 <button
                   onClick={() => setTwoFAModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {twoFAError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-700">{twoFAError}</p>
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {twoFAError}
                 </div>
               )}
 
               {!user.two_fa_enabled && qrCode ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    Scan this QR code with your authenticator application
-                  </p>
-                  
-                  <div className="flex justify-center p-4 bg-gray-50 rounded-md border border-gray-200">
-                    <img src={qrCode} alt="QR Code" className="w-48 h-48" />
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-xl border border-gray-200 p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Smartphone className="w-5 h-5 text-blue-600" />
+                        <p className="text-sm font-semibold text-gray-900">Install authenticator</p>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        Download Google Authenticator, Microsoft Authenticator, or any TOTP-compatible app.
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <QrCode className="w-5 h-5 text-blue-600" />
+                        <p className="text-sm font-semibold text-gray-900">Scan QR code</p>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        Use the app to scan the QR code below or enter the setup key provided.
+                      </p>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Verification Code
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-mono text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="000000"
-                    />
-                  </div>
+                  <div className="flex flex-col md:flex-row gap-6">
+                    <div className="flex-1 flex flex-col items-center gap-3">
+                      <div className="p-4 border border-gray-200 rounded-2xl bg-gray-50">
+                        <img src={qrCode} alt="Authenticator QR Code" className="w-48 h-48" />
+                      </div>
+                      <p className="text-xs text-gray-500 text-center">
+                        If you can’t scan, add the key manually in your authenticator app.
+                      </p>
+                    </div>
+                    <div className="flex-1 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Enter 6-digit verification code
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          value={verificationCode}
+                          onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl tracking-[0.5em] font-mono text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="••••••"
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                          Use the rotating code from your authenticator app.
+                        </p>
+                      </div>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={verify2FA}
-                      disabled={twoFALoading || verificationCode.length !== 6}
-                      className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
-                    >
-                      {twoFALoading ? 'Verifying...' : 'Verify and Enable'}
-                    </button>
-                    <button
-                      onClick={() => setTwoFAModal(false)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
-                    >
-                      Cancel
-                    </button>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={verify2FA}
+                          disabled={twoFALoading || verificationCode.length !== 6}
+                          className="flex-1 bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 text-sm font-semibold"
+                        >
+                          {twoFALoading ? 'Verifying...' : 'Verify & Enable'}
+                        </button>
+                        <button
+                          onClick={() => setTwoFAModal(false)}
+                          className="px-5 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 text-sm font-semibold"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : user.two_fa_enabled ? (
-                <div className="space-y-4">
-                  <div className="p-3 bg-green-50 rounded-md border border-green-200">
-                    <span className="text-sm font-medium text-green-800">
-                      Two-factor authentication is currently enabled
-                    </span>
+                <div className="space-y-5">
+                  <div className="rounded-xl border border-green-200 bg-green-50 p-4 flex items-start gap-3">
+                    <Shield className="w-5 h-5 text-green-600 mt-1" />
+                    <div>
+                      <p className="text-sm font-semibold text-green-900">2-Step Verification is active</p>
+                      <p className="text-sm text-green-800">
+                        You’ll be asked for an authenticator code each time you sign in.
+                      </p>
+                    </div>
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Enter password to disable
+
+                  <div className="rounded-xl border border-gray-200 p-4 space-y-3">
+                    <label className="text-sm font-medium text-gray-700">
+                      Enter password to disable protection
                     </label>
                     <input
                       type="password"
                       value={disablePassword}
                       onChange={(e) => setDisablePassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                       placeholder="Your password"
                     />
+                    <p className="text-xs text-gray-500">
+                      For your safety, disabling 2FA requires password confirmation.
+                    </p>
                   </div>
 
                   <div className="flex gap-3">
                     <button
                       onClick={disable2FA}
-                      disabled={twoFALoading}
-                      className="flex-1 bg-red-600 text-white py-2 rounded-md hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
+                      disabled={twoFALoading || !disablePassword}
+                      className="flex-1 bg-red-600 text-white py-3 rounded-xl hover:bg-red-700 disabled:opacity-50 text-sm font-semibold"
                     >
                       {twoFALoading ? 'Disabling...' : 'Disable 2FA'}
                     </button>
                     <button
                       onClick={() => setTwoFAModal(false)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+                      className="px-5 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 text-sm font-semibold"
                     >
                       Cancel
                     </button>
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="text-sm text-gray-500">
+                  Preparing secure setup...
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -425,7 +465,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
             <Calendar className="w-5 h-5 text-gray-400 mx-auto mb-2" />
             <p className="text-xs text-gray-600 mb-1">Member Since</p>
@@ -445,13 +485,6 @@ export default function ProfilePage() {
             <p className="text-xs text-gray-600 mb-1">Two-Factor Auth</p>
             <p className="text-sm font-semibold text-gray-900">
               {user.two_fa_enabled ? 'Enabled' : 'Disabled'}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-            <Calendar className="w-5 h-5 text-gray-400 mx-auto mb-2" />
-            <p className="text-xs text-gray-600 mb-1">Last Login</p>
-            <p className="text-sm font-semibold text-gray-900">
-              {user.last_login ? new Date(user.last_login).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
             </p>
           </div>
         </div>

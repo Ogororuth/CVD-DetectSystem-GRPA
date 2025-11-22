@@ -39,4 +39,9 @@ urlpatterns = [
     path('scans/<int:scan_id>/generate-report/', views.generate_report, name='generate_report'),
     path('scans/<int:scan_id>/download-report/', views.download_report, name='download_report'),
     path('scans/statistics/', views.get_scan_statistics, name='scan_statistics'),
+    
+    # Admin endpoints
+    path('admin/users/', views.admin_get_users, name='admin_get_users'),
+    path('admin/users/<int:user_id>/', views.admin_update_user, name='admin_update_user'),
+    path('admin/users/<int:user_id>/delete/', views.admin_delete_user, name='admin_delete_user'),
 ]

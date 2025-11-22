@@ -168,4 +168,11 @@ export const scansAPI = {
   }),
 };
 
+// Admin API
+export const adminAPI = {
+  getUsers: () => apiClient.get('/admin/users/'),
+  updateUser: (userId: number, data: any) => apiClient.put(`/admin/users/${userId}/`, data),
+  deleteUser: (userId: number) => apiClient.delete(`/admin/users/${userId}/delete/`),
+};
+
 export default apiClient;

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { scansAPI } from '@/app/lib/api';
+import { FileText, Download, ChevronLeft, Calendar, AlertCircle } from 'lucide-react';
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -43,10 +44,10 @@ export default function ReportsPage() {
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'low': return 'text-green-600 bg-green-100';
-      case 'moderate': return 'text-orange-600 bg-orange-100';
-      case 'high': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'low': return 'text-green-700 bg-green-50 border-green-200';
+      case 'moderate': return 'text-orange-700 bg-orange-50 border-orange-200';
+      case 'high': return 'text-red-700 bg-red-50 border-red-200';
+      default: return 'text-gray-700 bg-gray-50 border-gray-200';
     }
   };
 
@@ -68,37 +69,40 @@ export default function ReportsPage() {
         <div className="mb-8">
           <button
             onClick={() => router.push('/dashboard')}
-            className="text-indigo-600 hover:text-indigo-700 flex items-center gap-2 mb-4"
+            className="text-blue-600 hover:text-blue-700 flex items-center gap-2 mb-4 text-sm font-medium"
           >
-            ← Back to Dashboard
+            <ChevronLeft className="w-4 h-4" />
+            Back to Dashboard
           </button>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">All Reports</h1>
-              <p className="text-gray-600 mt-2">
-                Download and manage your PDF reports
+              <h1 className="text-2xl font-semibold text-gray-900">Clinical Reports</h1>
+              <p className="text-gray-600 mt-1 text-sm">
+                Download and manage your ECG analysis reports
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Total Reports</p>
-              <p className="text-3xl font-bold text-indigo-600">{scans.length}</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wider">Total Reports</p>
+              <p className="text-3xl font-semibold text-blue-600">{scans.length}</p>
             </div>
           </div>
         </div>
 
         {/* Reports List */}
         {scans.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
-            <div className="text-6xl mb-4">📄</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No reports yet</h3>
-            <p className="text-gray-600 mb-6">
-              Reports are generated after scan analysis. Upload a scan to get started.
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Reports Available</h3>
+            <p className="text-gray-600 mb-6 text-sm">
+              Reports are generated after scan analysis. Upload an ECG scan to generate your first report.
             </p>
             <button
               onClick={() => router.push('/upload')}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm"
             >
-              Upload ECG
+              Upload ECG Scan
             </button>
           </div>
         ) : (
@@ -106,50 +110,58 @@ export default function ReportsPage() {
             {scans.map((scan) => (
               <div
                 key={scan.id}
-                className="bg-white rounded-xl shadow-sm border p-6 hover:shadow-md transition"
+                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center text-2xl">
-                      📄
+                    <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100">
+                      <FileText className="w-6 h-6 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">
-                        Report #CVD-{scan.id.toString().padStart(5, '0')}
+                      <h3 className="font-semibold text-gray-900 text-sm">
+                        Report #{scan.id.toString().padStart(5, '0')}
                       </h3>
-                      <p className="text-sm text-gray-600">
-                        {new Date(scan.created_at).toLocaleDateString()}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Calendar className="w-3 h-3 text-gray-400" />
+                        <p className="text-xs text-gray-500">
+                          {new Date(scan.created_at).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getRiskColor(scan.risk_level)}`}>
+                  <span className={`px-3 py-1 rounded-md text-xs font-medium border ${getRiskColor(scan.risk_level)}`}>
                     {scan.risk_level.toUpperCase()}
                   </span>
                 </div>
 
-                <div className="space-y-2 mb-4">
+                <div className="space-y-2 mb-4 pb-4 border-b border-gray-100">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Confidence</span>
-                    <span className="font-medium">{(scan.confidence_score * 100).toFixed(1)}%</span>
+                    <span className="text-gray-600">Confidence Score</span>
+                    <span className="font-medium text-gray-900">{(scan.confidence_score * 100).toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Risk Level</span>
-                    <span className="font-medium capitalize">{scan.risk_level}</span>
+                    <span className="text-gray-600">Risk Assessment</span>
+                    <span className="font-medium capitalize text-gray-900">{scan.risk_level}</span>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleDownload(scan.id)}
-                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium text-sm"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm flex items-center justify-center gap-2"
                   >
-                    📥 Download PDF
+                    <Download className="w-4 h-4" />
+                    Download PDF
                   </button>
                   <button
                     onClick={() => router.push(`/scans/${scan.id}`)}
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium text-sm"
                   >
-                    View Scan
+                    View Details
                   </button>
                 </div>
               </div>

@@ -713,6 +713,9 @@ def verify_2fa_login(request):
 
 # ==================== SCAN MANAGEMENT VIEWS ====================
 
+# In your views.py, update the upload_scan function
+# Find this section and replace it:
+
 @csrf_exempt 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -726,45 +729,38 @@ def upload_scan(request):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    image = serializer.validated_data['image']
+    image_file = serializer.validated_data['image']
     notes = serializer.validated_data.get('notes', '')
     
     # Generate unique filename
-    ext = os.path.splitext(image.name)[1]
+    ext = os.path.splitext(image_file.name)[1]
     filename = f"{uuid.uuid4()}{ext}"
     filepath = os.path.join('scans', filename)
     
-    # Save image
-    saved_path = default_storage.save(filepath, image)
+    # Save the uploaded file
+    saved_path = default_storage.save(filepath, image_file)
     full_image_path = os.path.join(settings.MEDIA_ROOT, saved_path)
     
     try:
-        # ===== RUN REAL AI MODEL =====
         from core.ml_models.ecg_predictor import ECGPredictor
         
         predictor = ECGPredictor()
         prediction = predictor.predict(full_image_path)
         
-        # Build prediction result for database
-        prediction_result = {
-            'diagnosis': prediction['diagnosis'],
-            'confidence': prediction['confidence'],
-            'risk_level': prediction['risk_level'],
-            'probabilities': prediction['probabilities'],
-            'interpretation': prediction['interpretation'],
-            'metadata': prediction['metadata']
-        }
+        # IMPORTANT: Save the ENTIRE prediction result, not just selected fields
+        # This ensures interpretability, lead_analysis, etc. are all preserved
+        prediction_result = prediction  # Save complete result
         
         # Create scan record
         scan = Scan.objects.create(
             user=request.user,
             image_path=saved_path,
-            attention_map_path=prediction['attention_map_path'],
+            attention_map_path=prediction.get('attention_map_path', ''),
             risk_level=prediction['risk_level'],
             confidence_score=prediction['confidence'],
-            prediction_result=prediction_result,
+            prediction_result=prediction_result,  # Complete result with all nested data
             notes=notes,
-            processing_time=prediction['processing_time'],
+            processing_time=prediction.get('processing_time', 0),
             retention_until=date.today() + timedelta(days=7*365)
         )
         
@@ -774,16 +770,17 @@ def upload_scan(request):
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
-        # If model fails, delete uploaded image and return error
         if default_storage.exists(saved_path):
             default_storage.delete(saved_path)
+        
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Analysis error: {str(e)}")
+        print(f"Traceback: {error_details}")
         
         return Response({
             'error': f'Analysis failed: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_scans(request):
@@ -1037,3 +1034,52 @@ def debug_google_token(request):
     except Exception as e:
         print(f"Debug: Exception: {str(e)}")
         return Response({'error': str(e)}, status=500)
+
+
+# ==================== ADMIN VIEWS ====================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_get_users(request):
+    """Get all users (admin only)"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    users = User.objects.all().order_by('-created_at')
+    serializer = UserSerializer(users, many=True)
+    return Response({'users': serializer.data}, status=200)
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def admin_update_user(request, user_id):
+    """Update user (admin only)"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    try:
+        user = User.objects.get(id=user_id)
+        serializer = UpdateProfileSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'User updated successfully', 'user': serializer.data}, status=200)
+        return Response(serializer.errors, status=400)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def admin_delete_user(request, user_id):
+    """Delete user (admin only)"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    try:
+        user = User.objects.get(id=user_id)
+        if user.id == request.user.id:
+            return Response({'error': 'Cannot delete your own account'}, status=400)
+        user.delete()
+        return Response({'message': 'User deleted successfully'}, status=200)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
