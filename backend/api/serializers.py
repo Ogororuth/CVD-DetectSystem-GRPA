@@ -43,7 +43,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         """Check if email already exists"""
         if User.objects.filter(email=value.lower()).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
+            raise serializers.ValidationError("This email is already registered. Please sign in or use a different email.")
         return value.lower()
     
     def validate_age(self, value):
@@ -145,10 +145,13 @@ class Disable2FASerializer(serializers.Serializer):
     """Serializer for disabling 2FA"""
     password = serializers.CharField(required=True, write_only=True)
 
+
 class ScanSerializer(serializers.ModelSerializer):
-    """Serializer for scan data"""
+    """Serializer for scan data with enhanced lead analysis"""
     user_email = serializers.EmailField(source='user.email', read_only=True)
     user_name = serializers.SerializerMethodField()
+    lead_analysis = serializers.SerializerMethodField()
+    enhanced_interpretation = serializers.SerializerMethodField()
     
     class Meta:
         model = Scan
@@ -157,17 +160,26 @@ class ScanSerializer(serializers.ModelSerializer):
             'image_path', 'attention_map_path', 'report_path',
             'risk_level', 'confidence_score', 'prediction_result',
             'notes', 'processing_time', 'report_generated',
-            'deleted_by_user', 'deleted_at', 'created_at', 'updated_at'
+            'deleted_by_user', 'deleted_at', 'created_at', 'updated_at',
+            'lead_analysis', 'enhanced_interpretation'
         ]
         read_only_fields = [
             'id', 'user', 'created_at', 'updated_at',
             'attention_map_path', 'report_path', 'report_generated',
-            'deleted_by_user', 'deleted_at'
+            'deleted_by_user', 'deleted_at', 'lead_analysis', 'enhanced_interpretation'
         ]
     
     def get_user_name(self, obj):
         """Get user's full name"""
         return obj.user.get_full_name()
+    
+    def get_lead_analysis(self, obj):
+        """Get lead analysis from prediction_result"""
+        return obj.prediction_result.get('lead_analysis', {})
+    
+    def get_enhanced_interpretation(self, obj):
+        """Get enhanced interpretation with lead insights"""
+        return obj.prediction_result.get('interpretation', {})
 
 
 class ScanUploadSerializer(serializers.Serializer):

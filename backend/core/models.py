@@ -1,9 +1,12 @@
 """
 Core models for CVD Detection System
 """
+import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.conf import settings
 from django.utils import timezone
+from datetime import timedelta
 
 
 class UserManager(BaseUserManager):
@@ -45,6 +48,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     ]
     
     ROLE_CHOICES = [
+        ('admin', 'Administrator'),
         ('researcher', 'Researcher'),
         ('student', 'Student'),
         ('healthcare', 'Healthcare Professional'),
@@ -74,10 +78,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     two_fa_enabled = models.BooleanField(default=False)
     two_fa_secret = models.CharField(max_length=32, blank=True, null=True)
     
+    # Email verification fields
+    email_verified = models.BooleanField(default=False)
+    verification_token = models.CharField(max_length=100, blank=True, null=True)
+    verification_token_expires = models.DateTimeField(blank=True, null=True)
+    
     # Status fields
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    email_verified = models.BooleanField(default=False)
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -104,11 +112,68 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.first_name} {self.last_name}"
     
     def get_full_name(self):
-        return f"{self.first_name} {self.last_name}"
+        """Returns the user's full name"""
+        full_name = f"{self.first_name} {self.last_name}".strip()
+        return full_name if full_name else self.email
     
     def get_short_name(self):
-        return self.first_name
+        """Returns the user's first name"""
+        return self.first_name.split()[0] if self.first_name else self.email
 
+
+class EmailVerificationCode(models.Model):
+    """Email verification code model"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='email_verifications')
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(minutes=15)  # 15-minute expiry
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        """Check if the verification code is still valid"""
+        return (not self.used) and (timezone.now() <= self.expires_at)
+    
+    class Meta:
+        db_table = 'email_verification_codes'
+        verbose_name = 'Email Verification Code'
+        verbose_name_plural = 'Email Verification Codes'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Code for {self.user.email}"
+
+class PasswordResetCode(models.Model):
+    """Password reset code model"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_resets')
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(minutes=15)  # 15-minute expiry
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        """Check if the reset code is still valid"""
+        return (not self.used) and (timezone.now() <= self.expires_at)
+    
+    class Meta:
+        db_table = 'password_reset_codes'
+        verbose_name = 'Password Reset Code'
+        verbose_name_plural = 'Password Reset Codes'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Reset code for {self.user.email}"
 
 class Scan(models.Model):
     """Medical scan model"""
@@ -130,7 +195,7 @@ class Scan(models.Model):
     # Prediction results
     risk_level = models.CharField(max_length=20, choices=RISK_LEVELS)
     confidence_score = models.FloatField()
-    prediction_result = models.JSONField()  # Stores detailed results
+    prediction_result = models.JSONField(default=dict)  # Stores detailed results including lead_analysis
     
     # Metadata
     notes = models.TextField(blank=True, null=True)
@@ -174,6 +239,20 @@ class Scan(models.Model):
         self.deleted_by_user = False
         self.deleted_at = None
         self.save()
+    
+    def get_lead_analysis(self):
+        """Get lead analysis data from prediction_result"""
+        return self.prediction_result.get('lead_analysis', {})
+    
+    def get_enhanced_interpretation(self):
+        """Get enhanced interpretation with lead insights"""
+        interpretation = self.prediction_result.get('interpretation', {})
+        lead_analysis = self.get_lead_analysis()
+        
+        # Add lead insights if available
+        if lead_analysis and 'lead_insights' in interpretation:
+            return interpretation
+        return interpretation
 
 
 class UserPreference(models.Model):
