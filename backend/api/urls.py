@@ -29,5 +29,7 @@ urlpatterns = [
     path('scans/', views.get_user_scans, name='get_user_scans'),
     path('scans/<int:scan_id>/', views.get_scan_detail, name='get_scan_detail'),
     path('scans/<int:scan_id>/delete/', views.delete_scan, name='delete_scan'),
+    path('scans/<int:scan_id>/generate-report/', views.generate_report, name='generate_report'),
+    path('scans/<int:scan_id>/download-report/', views.download_report, name='download_report'),
     path('scans/statistics/', views.get_scan_statistics, name='scan_statistics'),
 ]
