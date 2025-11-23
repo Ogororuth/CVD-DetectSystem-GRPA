@@ -270,8 +270,3 @@ Check the debug logs in `backend/debug.log` for detailed error information.
 - Mendeley Data for the ECG dataset
 - Open-source community for machine learning libraries
 - Medical professionals for clinical validation
-
----
-
-*Advancing cardiovascular healthcare through interpretable artificial intelligence.*
-``
