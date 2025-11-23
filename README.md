@@ -24,7 +24,6 @@ This research project develops an interpretable machine learning model leveragin
 - **Precision**: 92.9%
 - **Recall**: 92.0%
 - **F1-Score**: 92.1%
-- **Inference Time**: 0.29 seconds per ECG
 
 ### Class-wise Performance
 - **Normal**: High detection accuracy with conservative predictions for uncertain cases
@@ -45,7 +44,6 @@ This research project develops an interpretable machine learning model leveragin
 
 ### Data Preparation
 - **Split Ratio**: 80-20 train-validation split (741 training, 187 validation)
-- **Stratified Sampling**: Proportional representation of all classes
 - **Image Standardization**: Resized to 224×224 pixels, normalized using ImageNet statistics
 - **Data Augmentation**:
   - Random rotations (up to 5 degrees)
@@ -125,10 +123,6 @@ Access the application at: `http://127.0.0.1:8000`
 POST /api/classify-ecg/
 {
     "ecg_image": "file_upload",
-    "patient_data": {
-        "age": 45,
-        "gender": "M",
-        "symptoms": ["chest_pain", "shortness_of_breath"]
     }
 }
 
@@ -209,7 +203,7 @@ heart-disease-detection/
 |----------------|--------|--------|
 | Model Accuracy | Validation Accuracy | 91.98% |
 | Model Precision | Weighted Precision | 92.9% |
-| System Response | ECG Analysis Time | 0.29 seconds |
+| System Response | ECG Analysis Time | <60 seconds |
 | User Workflow | End-to-end Processing | <60 seconds |
 
 ## Security & Compliance
