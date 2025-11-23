@@ -190,16 +190,11 @@ heart-disease-detection/
 - **Confidence Scoring**: Transparent probability estimates for each classification
 - **Clinical Validation**: Attention maps align with cardiologist-identified important regions
 
-### 2. Multi-modal Analysis
-- **ECG Image Processing**: Vision Transformer analysis of waveform patterns
-- **Clinical Data Integration**: Patient demographics and symptoms
-- **Hybrid Approach**: Combines imaging and clinical data for comprehensive assessment
-
-### 3. Web Application
+### 2. Web Application
 - **User Authentication**: Secure login and registration
 - **ECG Management**: Upload, store, and manage patient ECG records
 - **Report Generation**: Professional medical reports with predictions and interpretations
-- **Responsive Design**: Accessible on desktop and mobile devices
+- **Responsive Design**: Accessible on desktop
 
 ## Testing & Validation
 
@@ -222,8 +217,6 @@ heart-disease-detection/
 ### Security Features
 - **User Authentication**: Secure login with session management
 - **Data Protection**: Encrypted storage and transmission
-- **Access Controls**: Role-based permissions for different user types
-- **Audit Logging**: Track all system activities and predictions
 
 ### Medical Compliance
 - **Data Privacy**: HIPAA-compliant handling of patient information
@@ -242,16 +235,6 @@ heart-disease-detection/
 ### Research Directions
 - **Transfer Learning**: Adapt pre-trained models for specific cardiac conditions
 - **Explainable AI**: Enhanced interpretability techniques for clinical trust
-- **Federated Learning**: Privacy-preserving model training across institutions
-- **Real-time Monitoring**: Continuous heart health assessment from wearable devices
-
-## Contributing
-
-We welcome contributions from researchers and developers. Please see our contributing guidelines for details on:
-- Code style and documentation standards
-- Testing requirements
-- Pull request process
-- Issue reporting
 
 ## Contact
 
