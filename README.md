@@ -1,93 +1,49 @@
-# Interpretable Machine Learning Model for Heart Disease Diagnosis Using Vision Transformers
+# CVD Detect System - Heart Disease Diagnosis Using Vision Transformers
 
 ## Project Overview
 
-This research project develops an interpretable machine learning model leveraging Vision Transformers (ViTs) to enhance heart disease diagnosis by analyzing ECG images. The system achieves state-of-the-art performance in cardiovascular disease detection while providing transparent decision-making insights for medical practitioners.
+A full-stack web application with Django backend and Next.js frontend that provides interpretable heart disease diagnosis from ECG images using Vision Transformers. The system offers real-time analysis with clinical-grade accuracy and transparent decision-making for healthcare professionals.
 
 **Key Features:**
-- **High Accuracy**: 91.98% validation accuracy across four heart condition classes
-- **Interpretable AI**: Attention mechanisms highlight clinically relevant ECG regions
-- **Multi-class Classification**: Detects Normal, Abnormal, History of MI, and Active MI conditions
-- **Web Interface**: User-friendly Django application for ECG upload and analysis
-- **Real-time Processing**: Sub-second inference times for rapid diagnosis
+- **High Accuracy**: 91.98% validation accuracy across four cardiac conditions
+- **Interpretable AI**: Attention mechanisms and integrated gradients for clinical transparency
+- **Multi-class Classification**: Detects Normal, Abnormal, History of MI, and Active MI
+- **Modern Web Interface**: Next.js frontend with responsive design
+- **Real-time Processing**: Sub-second ECG analysis
+- **Security**: Two-factor authentication and secure user management
 
-## Models & Performance
+## System Architecture
 
-### Vision Transformer Architecture
-- **Base Model**: Pre-trained Vision Transformer adapted for medical imaging
-- **Input**: Standardized ECG images (224×224 pixels)
-- **Output**: 4-class classification with confidence scores
-- **Training**: Transfer learning with fine-tuning on ECG dataset
+### Backend (Django)
+- **Framework**: Django REST Framework
+- **Database**: SQLite (development) / PostgreSQL (production)
+- **AI Model**: Vision Transformer (ViT) for ECG classification
 
-### Performance Metrics
-- **Overall Accuracy**: 91.98%
-- **Precision**: 92.9%
-- **Recall**: 92.0%
-- **F1-Score**: 92.1%
-
-### Class-wise Performance
-- **Normal**: High detection accuracy with conservative predictions for uncertain cases
-- **Abnormal**: Perfect precision in detecting irregular heart rhythms
-- **History of MI**: Reliable identification of prior myocardial infarction cases
-- **Active MI**: Perfect precision in detecting current myocardial infarction
-
-## Dataset
-
-### Source & Composition
-- **Source**: Mendeley ECG Dataset
-- **Total Images**: 928 ECG recordings across four categories
-- **Class Distribution**:
-  - Normal ECG recordings: 284 images
-  - Abnormal tracings: 233 images
-  - History of myocardial infarction: 172 images
-  - Active myocardial infarction: 239 images
-
-### Data Preparation
-- **Split Ratio**: 80-20 train-validation split (741 training, 187 validation)
-- **Image Standardization**: Resized to 224×224 pixels, normalized using ImageNet statistics
-- **Data Augmentation**:
-  - Random rotations (up to 5 degrees)
-  - Horizontal flipping (20% of images)
-  - Brightness and contrast adjustments (10%)
-  - Random translations (up to 3%)
-
-## System Requirements
-
-### Hardware Specifications
-| Component | Development Setup | Minimum Required |
-|-----------|-------------------|------------------|
-| Processor | Intel Core i7 | Intel Core i5 or equivalent |
-| RAM | 16 GB | 8 GB |
-| Storage | 1 TB | 500 GB |
-| Graphics | NVIDIA RTX 3060 | Integrated graphics |
-| Network | Broadband internet | Stable internet connection |
-
-*Note: For training, Google Colab with Tesla T4 GPU was used*
-
-### Software Specifications
-| Software | Version | Purpose |
-|----------|---------|---------|
-| Operating System | Windows 10/11 or Ubuntu | System platform |
-| Python | 3.8 or higher | Programming language |
-| Django | 4.2.7 | Web framework |
-| PyTorch | 2.0.1 | Machine learning library |
-| PostgreSQL | 14.0 | Database |
-| Web browser | Chrome or Firefox | User interface |
+### Frontend (Next.js)
+- **Framework**: Next.js 15.5.5 with React
+- **Styling**: Modern CSS-in-JS or Tailwind CSS
+- **API Integration**: RESTful API communication with Django backend
+- **Responsive Design**: Mobile-first approach
 
 ## Installation & Setup
 
-### 1. Clone Repository
+### Prerequisites
+- Python 3.8+
+- Node.js 16+
+- npm or yarn
+
+## Backend Setup
+
+### 1. Navigate to Backend Directory
 ```bash
-git clone https://github.com/your-username/heart-disease-detection.git
-cd heart-disease-detection
+cd backend
 ```
 
 ### 2. Create Virtual Environment
 ```bash
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
-# OR
-venv\Scripts\activate  # Windows
+venv\Scripts\activate     # Windows
 ```
 
 ### 3. Install Dependencies
@@ -101,150 +57,221 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 5. Run Development Server
+### 5. Run Backend Server
 ```bash
 python manage.py runserver
 ```
 
-Access the application at: `http://127.0.0.1:8000`
+Backend will be available at: `http://127.0.0.1:8000`
 
-## Usage
+## Frontend Setup
 
-### Web Interface
-1. **User Registration**: Create an account with secure authentication
-2. **ECG Upload**: Upload ECG images through the web interface
-3. **Real-time Analysis**: System processes images in sub-second time
-4. **Results Display**: View classification results with confidence scores
-5. **Interpretability**: Examine attention maps highlighting relevant ECG regions
-
-### API Endpoints
-```python
-# ECG Classification Endpoint
-POST /api/classify-ecg/
-{
-    "ecg_image": "file_upload",
-    }
-}
-
-# Response
-{
-    "prediction": "Active_MI",
-    "confidence": 0.94,
-    "attention_map": "base64_encoded_image",
-    "timestamp": "2024-01-15T10:30:00Z"
-}
+### 1. Navigate to Frontend Directory
+```bash
+cd ../frontend
 ```
+
+### 2. Install Dependencies
+```bash
+npm install
+```
+
+### 3. Run Frontend Development Server
+```bash
+npm run dev
+```
+
+Frontend will be available at: `http://localhost:3001` (or next available port)
+
+### Access Points
+- **Frontend Application**: `http://localhost:3001`
+- **Backend API**: `http://127.0.0.1:8000`
+- **Admin Interface**: `http://127.0.0.1:8000/admin/`
 
 ## Model Training
 
-### Training Process
-1. **Data Preparation**: Custom PyTorch dataset class with augmentation
-2. **Model Configuration**: Vision Transformer Base with modified classification head
-3. **Training Parameters**:
-   - Epochs: 20
-   - Batch Size: 16
-   - Learning Rate: 2e-5
-   - Weight Decay: 0.01
-   - Loss Function: Cross-entropy with class weights
+### Training Configuration
+- **Dataset**: Mendeley ECG (928 images, 4 classes)
+- **Split**: 80% training (741), 20% validation (187)
+- **Epochs**: 15 with early stopping (5 patience)
+- **Batch Size**: 16
+- **Learning Rate**: 1e-5
+- **Optimizer**: AdamW with weight decay 0.01
 
 ### Training Commands
 ```bash
-# Train Vision Transformer model
-python train_vision_transformer.py --data_path /path/to/ecg_dataset --epochs 20 --batch_size 16
-
-# Evaluate model performance
-python evaluate_model.py --model_path models/vision_transformer_best.pth --test_data /path/to/test_data
+# The model is pre-trained and included in core/ml_models/weights/
+# For retraining, use your existing training scripts
+python train_vision_transformer.py --data_dir /path/to/ecg_data
 ```
 
-## Project Structure
+## Performance Metrics
+
+### Overall Performance
+- **Accuracy**: 91.98%
+- **Precision**: 92.9%
+- **Recall**: 92.0%
+- **F1-Score**: 92.1%
+
+### Class-wise Performance
+- **Abnormal**: 100% precision, 91.5% recall
+- **MI_Patient**: 100% precision, 89.6% recall  
+- **MI_History**: 90.6% precision, 82.9% recall
+- **Normal**: 82.6% precision, 100% recall
+
+## Usage Guide
+
+### For Healthcare Professionals
+1. **Access the application** at `http://localhost:3001`
+2. **Register/Login** with secure authentication
+3. **Upload ECG** images through the intuitive interface
+4. **View Results** with interpretable attention maps and confidence scores
+5. **Download Reports** for patient records and clinical documentation
+
+### For Administrators
+1. Access the **Admin Panel** at `http://127.0.0.1:8000/admin/`
+2. **Manage Users** and their permissions
+3. **Monitor Scans** and system usage statistics
+4. **Generate Analytics** on model performance and user activity
+
+## API Usage
+
+### ECG Classification Endpoint
+// Upload ECG for Analysis
+POST /api/scans/upload/
+Content-Type: multipart/form-data
+
+Form Data:
+- ecg_image: <file_upload>
+- patient_age: 45
+- patient_gender: "M"
+
+Response:
+{
+  "id": 123,
+  "prediction": "Active_MI",
+  "confidence": 0.94,
+  "attention_map": "base64_image_data",
+  "clinical_insights": "ST-segment elevation detected in anterior leads",
+  "created_at": "2024-01-15T10:30:00Z"
+}
 
 ```
-heart-disease-detection/
-├── app/                          # Django application
-│   ├── models.py                 # Database models
-│   ├── views.py                  # Application views
-│   ├── urls.py                   URL routing
-│   └── templates/                # HTML templates
-├── ml_model/                     # Machine learning components
-│   ├── vision_transformer.py     # ViT model architecture
-│   ├── data_loader.py           # Data loading and preprocessing
-│   ├── train.py                 # Training scripts
-│   └── inference.py             # Prediction pipeline
-├── static/                       # Static files (CSS, JS, images)
-├── media/                        # Uploaded ECG images
-├── requirements.txt              # Python dependencies
-├── manage.py                     # Django management script
-└── README.md                     # Project documentation
+
+### Available Endpoints
+- `GET /api/scans/` - List user's previous scans
+- `GET /api/scans/{id}/` - Retrieve specific scan details
+- `POST /api/scan/upload/` - Upload new ECG for analysis
+- `GET /api/admin/users/` - User management (admin only)
+- `GET /api/admin/scans/` - Scan management (admin only)
+
+## Development
+
+### Backend Development
+```bash
+cd backend
+source venv/bin/activate
+python manage.py runserver
+```
+
+### Frontend Development
+```bash
+cd frontend
+npm run dev
+```
+
+### Running Tests
+```bash
+# Backend tests
+cd backend
+python manage.py test
+python test_api.py
+python test_scan_upload.py
+
 ```
 
 ## Key Features
 
 ### 1. Interpretable AI
-- **Attention Visualization**: Generate heatmaps showing which ECG regions influenced predictions
-- **Confidence Scoring**: Transparent probability estimates for each classification
-- **Clinical Validation**: Attention maps align with cardiologist-identified important regions
+- **Attention Visualization**: Heatmaps showing influential ECG regions
+- **Integrated Gradients**: Feature attribution for clinical validation
+- **Ablation Studies**: Model behavior analysis
 
-### 2. Web Application
-- **User Authentication**: Secure login and registration
-- **ECG Management**: Upload, store, and manage patient ECG records
-- **Report Generation**: Professional medical reports with predictions and interpretations
-- **Responsive Design**: Accessible on desktop
+### 2. Security & Authentication
+- **Two-Factor Authentication**: Enhanced login security
+- **Secure File Upload**: ECG image validation and processing
+- **Session Management**: Secure user sessions
 
-## Testing & Validation
+### 3. Modern User Experience
+- **Responsive Design**: Works seamlessly on desktop
+- **Real-time Updates**: Live feedback during ECG processing
+- **Intuitive Interface**: User-friendly design for healthcare professionals
+- **Professional Reporting**: Downloadable clinical reports
 
-### Testing Methodology
-- **White-box Testing**: Internal component validation and parameter analysis
-- **Black-box Testing**: End-to-end functionality testing
-- **Integration Testing**: Complete workflow validation
-- **Performance Testing**: Response time and scalability assessment
+## Testing
 
-### Test Results
-| Test Component | Metric | Result |
-|----------------|--------|--------|
-| Model Accuracy | Validation Accuracy | 91.98% |
-| Model Precision | Weighted Precision | 92.9% |
-| System Response | ECG Analysis Time | <60 seconds |
-| User Workflow | End-to-end Processing | <60 seconds |
+Run the comprehensive test suite:
+```bash
+# Backend tests
+cd backend
+python manage.py test
+python test_api.py
+python test_scan_upload.py
+python test_admin_module.py
+python test_report_generation.py
+python test_2fa.py
 
-## Security & Compliance
+```
 
-### Security Features
-- **User Authentication**: Secure login with session management
-- **Data Protection**: Encrypted storage and transmission
+## Model Interpretability
 
-### Medical Compliance
-- **Data Privacy**: HIPAA-compliant handling of patient information
-- **Clinical Safety**: Operates as supplementary tool with specialist oversight
-- **Quality Assurance**: Continuous monitoring and validation protocols
+The system provides multiple interpretability features:
+- **Attention Maps**: Visualize which ECG regions influenced the diagnosis
+- **Integrated Gradients**: Quantify feature importance
+- **Ablation Analysis**: Understand model decision boundaries
+- **Clinical Correlation**: Map AI insights to medical knowledge
 
-## Future Work
+## Data Privacy
 
-### Planned Enhancements
-1. **Advanced Architectures**: Implement hierarchical vision transformers (Swin Transformers)
-2. **Expanded Diagnosis**: Include wider range of heart conditions and rare abnormalities
-3. **Mobile Deployment**: Real-time ECG analysis on mobile devices
-4. **Temporal Analysis**: Sequence modeling for dynamic ECG pattern recognition
-5. **Multi-institutional Validation**: Testing on diverse datasets from multiple healthcare institutions
+The system implements data protection measures including:
+- Secure user authentication and authorization
+- Access controls and audit logging
+- Compliance with data protection best practices
 
-### Research Directions
-- **Transfer Learning**: Adapt pre-trained models for specific cardiac conditions
-- **Explainable AI**: Enhanced interpretability techniques for clinical trust
+## Troubleshooting
+
+### Common Issues
+1. **Port 3000 in use**: Frontend will automatically use next available port (3001, 3002, etc.)
+2. **CORS errors**: Ensure backend CORS settings include frontend URL
+3. **ModuleNotFoundError**: Ensure all dependencies are installed from requirements.txt
+4. **Database errors**: Run `python manage.py migrate` to apply migrations
+5. **Model loading issues**: Check that `vit_ecg_best_v2.pth` exists in `core/ml_models/weights/`
+
+### Getting Help
+Check the debug logs in `backend/debug.log` for detailed error information.
+
+## Future Enhancements
+
+1. **Advanced Architectures**: Swin Transformers for hierarchical analysis
+2. **Mobile Deployment**: Real-time ECG analysis on mobile devices  
+3. **Federated Learning**: Privacy-preserving model training
+4. **Expanded Conditions**: Additional cardiac abnormality detection
 
 ## Contact
 
-**Student**: Ruth Mong'ina Ogoro  
+**Developer**: Ruth Mong'ina Ogoro  
 **Institution**: Strathmore University  
-**Email**: Ruth.ogoro@strathmore.edu
+**Email**: Ruth.ogoro@strathmore.edu  
 **Supervisor**: Mr. Deperias Kerre
 
 ## Acknowledgments
 
 - Strathmore University School of Computing and Engineering Sciences
-- Mendeley Data for providing the ECG dataset
-- Google Colab for computational resources
-- The open-source community for machine learning libraries and tools
+- Mendeley Data for the ECG dataset
+- Open-source community for machine learning libraries
+- Medical professionals for clinical validation
 
 ---
 
-*This research represents a significant advancement in automated cardiovascular disease diagnosis, providing both accurate predictions and transparency for clinical adoption.*[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/F63P1L7A)
-[![Open in Visual Studio Code](https://classroom.github.com/assets/open-in-vscode-2e0aaae1b6195c2367325f4f02e2d04e9abb55f0b24a779b69b11b9e10269abc.svg)](https://classroom.github.com/online_ide?assignment_repo_id=20100699&assignment_repo_type=AssignmentRepo)
+*Advancing cardiovascular healthcare through interpretable artificial intelligence.*
+``
